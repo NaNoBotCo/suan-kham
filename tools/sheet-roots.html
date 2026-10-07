@@ -1,0 +1,11 @@
+<!doctype html><meta charset=utf-8><body style="margin:0;background:#f6f2e9">
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@500&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<canvas id=c width=1400 height=1100></canvas>
+<script src="../src/skyline.js"></script><script src="../src/tree.js"></script>
+<script>
+var c=document.getElementById("c").getContext("2d");
+Promise.all(['tham','daeng'].map(s=>fetch('../data/heads/'+s+'.json').then(r=>r.json()))).then(function(H){
+ var t=+(location.hash.slice(1)||1234);
+ H.forEach(function(h,i){c.save();c.translate(i*700,0);c.beginPath();c.rect(0,0,690,1100);c.clip();MDTREE.draw(c,690,1100,t,h,{sky:true,roots:true});c.restore();});
+});
+</script>

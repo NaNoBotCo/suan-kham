@@ -1,0 +1,13 @@
+data/
+en/out/
+en/out2/
+en/out3/
+en/jobs.jsonl
+en/*.log
+artifact.html
+android/build/
+android/*.keystore
+android/*.jks
+android/signing.txt
+android/dist/
+.DS_Store

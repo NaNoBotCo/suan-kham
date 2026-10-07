@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="th" translate="no" class="notranslate">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="google" content="notranslate">
+<meta name="robots" content="notranslate">
+<title>สวนคำ · The Word Garden</title>
+<meta name="description" content="180 Thai words grown as fractal trees: every sense a branch, every compound a leaf, every lookalike a weed. Wander from word to word.">
+<meta property="og:title" content="สวนคำ · The Word Garden">
+<meta property="og:description" content="180 Thai words grown as fractal trees. One leaf, one word.">
+<meta property="og:image" content="https://nanobotco.github.io/suan-kham/card.png">
+<meta property="og:url" content="https://nanobotco.github.io/suan-kham/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://nanobotco.github.io/suan-kham/">
+<meta name="theme-color" content="#f6f0e2">
+<link rel="icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<script>if(/[.]translate[.]goog$/.test(location.hostname))location.replace("https://"+location.hostname.slice(0,-15).replace(/--/g,"~").replace(/-/g,".").replace(/~/g,"-")+location.pathname+location.search.replace(/([?&])_x_tr_[^&]*/g,"$1").replace(/[?&]+$/,"").replace(/[?]&+/,"?")+location.hash)</script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao&family=Noto+Sans+Tai+Tham&family=Noto+Sans+Tai+Viet&family=Noto+Sans+New+Tai+Lue&family=Noto+Sans+Myanmar&family=Noto+Sans+Tai+Le&family=Noto+Sans+Ahom&family=Noto+Sans+Devanagari&family=Noto+Sans+Khmer&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#/"><canvas class="brand-pic" width="44" height="44" data-mark="x:garden"></canvas><span><b>สวนคำ</b><small>The Word Garden</small></span></a>
+  <form class="find" role="search" onsubmit="return false"><input id="q" type="search" autocomplete="off" placeholder="หาคำ · find a word (ไทย, roman, English)" aria-label="find a word"><div id="hits" class="hits" hidden></div></form>
+  <button id="wander" class="wander" title="เดินเล่น · wander"><canvas width="40" height="40" data-mark="x:wander"></canvas><span>เดินเล่น<small>wander</small></span></button>
+</header>
+<nav class="tabs" id="tabs">
+  <a href="#/" data-t="home">สวน<small>garden</small></a>
+  <a href="#/net" data-t="net">ตาข่าย<small>net</small></a>
+  <a href="#/beds" data-t="beds">แปลง<small>beds</small></a>
+  <a href="#/seeds" data-t="seeds">เมล็ด<small>seeds</small></a>
+  <a href="#/grafts" data-t="grafts">กิ่ง<small>branches</small></a>
+  <a href="#/shapes" data-t="shapes">รูปคำ<small>shapes</small></a>
+  <a href="#/weeds" data-t="weeds">วัชพืช<small>weeds</small></a>
+  <a href="#/notes" data-t="notes">สมุด<small>notebook</small></a>
+  <a href="#/play" data-t="play">เล่น<small>play</small></a>
+  <a href="#/trail" data-t="trail">รอยเท้า<small>trail</small></a>
+</nav>
+<main id="main" tabindex="-1"><div class="loading"><canvas width="160" height="160" data-mark="x:garden"></canvas><p>กำลังปลูก… planting…</p></div></main>
+<footer class="foot" id="foot"></footer>
+<script src="skyline.js"></script>
+<script src="doodler.js"></script>
+<script src="doodler-kham-heads.js"></script>
+<script src="doodler-kham-marks.js"></script>
+<script src="tree.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

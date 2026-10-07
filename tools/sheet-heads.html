@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Word Garden: the heads</title>
+<style>html,body{margin:0;background:#f3e9cf}canvas{display:block}</style>
+<canvas id="c"></canvas>
+<script src="../src/skyline.js"></script>
+<script src="../src/doodler.js"></script>
+<script src="../src/doodler-kham-heads.js"></script>
+<script>
+/* #time[,s[,key]]  e.g. #1234  or  #2900,60  or  #1234,160,ta   (#live animates) */
+(function () {
+  var h = location.hash.replace('#', ''), live = h === 'live', a = h.split(','), t0 = live ? 0 : (+a[0] || 1234), s = +a[1] || 60, only = a[2] || '';
+  var H = window.MDKHAMHEADS, keys = only ? [only] : H.keys, cv = document.getElementById('c'), c = cv.getContext('2d');
+  var cw = Math.round(s * 3.3), ch = Math.round(s * 2.3 + 30), cols = Math.max(1, Math.floor(innerWidth / cw)), rows = Math.ceil(keys.length / cols), dpr = window.devicePixelRatio || 1;
+  cv.width = innerWidth * dpr; cv.height = rows * ch * dpr; cv.style.width = innerWidth + 'px'; cv.style.height = rows * ch + 'px';
+  function frame(t) {
+    c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, innerWidth, rows * ch);
+    keys.forEach(function (k, i) {
+      var cx = (i % cols) * cw, cy = Math.floor(i / cols) * ch;
+      c.fillStyle = '#fbf3df'; c.fillRect(cx + 6, cy + 6, cw - 12, ch - 12);
+      c.strokeStyle = 'rgba(122,31,26,.25)'; c.strokeRect(cx + 6.5, cy + 6.5, cw - 13, ch - 13);
+      c.save(); c.beginPath(); c.rect(cx + 6, cy + 6, cw - 12, ch - 12); c.clip();
+      var ok = H.draw(k, c, cx + cw / 2, cy + 6 + (ch - 36) / 2 + 6, s, t); c.restore();
+      c.fillStyle = ok ? '#7a1f1a' : '#d00'; c.font = '13px sans-serif'; c.textAlign = 'center'; c.fillText(k + (ok ? '' : ' ???'), cx + cw / 2, cy + ch - 12);
+    });
+  }
+  if (live) { (function loop(n) { frame(n); requestAnimationFrame(loop); })(0); } else frame(t0);
+})();
+</script>

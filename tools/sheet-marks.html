@@ -1,0 +1,24 @@
+<!doctype html><meta charset=utf-8><body style="margin:0;background:#e9e1cf">
+<canvas id=c></canvas>
+<script src="../src/skyline.js"></script><script src="../src/doodler.js"></script><script src="../src/doodler-kham-marks.js"></script>
+<script>
+/* hash: 1234  or  1234/d:body,d:heart  (the keys after the slash are drawn at s=140 first) */
+var parts = (location.hash.slice(1) || '1234').split('/'), t = +parts[0] || 1234, big = parts[1] ? parts[1].split(',') : [];
+var M = MDKHAMMARKS, keys = M.keys, W = 1400, dpr = window.devicePixelRatio || 1, cv = document.getElementById('c'), c = cv.getContext('2d');
+var cw = 168, ch = 168, cols = 8, rows = Math.ceil(keys.length / cols), H = 20 + big.length * 330 + rows * ch + 120;
+cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px'; c.scale(dpr, dpr);
+function card(x, y, w, h, key, s) {
+  c.save(); c.fillStyle = '#fbf3df'; c.fillRect(x, y, w, h); c.strokeStyle = 'rgba(0,0,0,.12)'; c.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  c.beginPath(); c.rect(x, y, w, h - 18); c.clip();
+  var ok = M.draw(key, c, x + w / 2, y + (h - 18) / 2, s, t);
+  c.restore();
+  c.fillStyle = ok ? '#4a3a2a' : '#c00'; c.font = '12px monospace'; c.textAlign = 'center'; c.fillText(key, x + w / 2, y + h - 5);
+}
+var y0 = 20;
+big.forEach(function (k, i) { card(20 + i * 330, y0, 320, 320, k, 140); });
+y0 += big.length ? 330 : 0;
+keys.forEach(function (k, i) { card(20 + (i % cols) * (cw + 2), y0 + Math.floor(i / cols) * (ch + 4), cw, ch, k, 56); });
+y0 += rows * (ch + 4) + 10;
+['d:body', 'd:money', 'o:tai', 'v:metaphor', 'x:speak'].forEach(function (k, i) { card(20 + i * 74, y0, 70, 70, k, 28); });
+c.fillStyle = '#4a3a2a'; c.font = '12px monospace'; c.textAlign = 'left'; c.fillText('s=28, t=' + t + ', keys=' + keys.length + ', unknown=' + M.draw('nope', c, 0, 0, 10, 0), 400, y0 + 40);
+</script>
