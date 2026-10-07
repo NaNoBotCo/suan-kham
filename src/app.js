@@ -206,6 +206,7 @@ document.getElementById('wander').addEventListener('click', function () {
 document.getElementById('help').addEventListener('click', function () { guide(); });
 
 /* ---------------------------------------------------------------- the path bar: where you are, how you got here, the way back */
+document.getElementById('crumbs').addEventListener('click', function (e) { if (e.target.closest('.mapto')) document.getElementById('mapbtn').click(); });
 var crumbsEl = document.getElementById('crumbs'), hintEl = document.getElementById('hintbar'), HOME = ['#/', 'สวน · home'];
 var PATH = (function () { try { return JSON.parse(sessionStorage.getItem('suankham:path')) || [HOME]; } catch (e) { return [HOME]; } })();
 function savePath() { try { sessionStorage.setItem('suankham:path', JSON.stringify(PATH)); } catch (e) { } }
@@ -223,7 +224,7 @@ function crumbLabel(label) { if (PATH.length) { PATH[PATH.length - 1][1] = label
 function drawCrumbs() {
   if (PATH.length <= 1) { crumbsEl.hidden = true; crumbsEl.innerHTML = ''; return; }
   var prev = PATH[PATH.length - 2], show = PATH.length > 5 ? [PATH[0], null].concat(PATH.slice(-3)) : PATH;
-  crumbsEl.innerHTML = '<a class="backto" href="' + prev[0] + '"><span aria-hidden="true">‹</span> กลับไป · back to <b>' + esc(prev[1]) + '</b></a>' +
+  crumbsEl.innerHTML = '<div class="crumb-row"><a class="backto" href="' + prev[0] + '"><span aria-hidden="true">‹</span> กลับไป · back to <b>' + esc(prev[1]) + '</b></a><button class="mapto" type="button">แผนที่ · map</button></div>' +
     '<ol>' + show.map(function (p, i) {
       if (!p) return '<li class="gap" aria-hidden="true">…</li>';
       var last = i === show.length - 1;
@@ -268,7 +269,7 @@ function pageHome() {
     }).join('') + '</div>' +
     section('ทางเข้าอื่น', 'more ways in', 'x:search') + exploreCards()
   );
-  setTab('home'); hint('Type a word in the box, or tap one of the pictures. Once you move on, a path bar under the search shows where you are and leads back.');
+  setTab('home'); hint('Type a word in the box, or tap one of the pictures. Once you move on, a path bar under the search leads back, and <b>แผนที่ · map</b> shows where you are and where you can go next.');
   attachSearch(document.getElementById('q2'), document.getElementById('hits2'));
   var cv = document.getElementById('today');
   pic(cv, function (c, W, H, t) { return MDTREE.draw(c, W, H, t, h, { sky: true, sign: false }); });
@@ -348,7 +349,7 @@ function pageHead(s, hiN, leafTh) {
     );
     setTab('');
     crumbLabel(h.th + (h.en ? ' · ' + h.en.split(',')[0] : '') + (hiN ? ' · meaning ' + hiN : ''));
-    hint('The word ' + esc(h.th) + '. Use <b>ไปที่ · jump to</b> to reach its picture, its origin or the words built from it. Tap a number on the picture to read that meaning. <b>กลับไป · back</b> above returns you to the page you came from.');
+    hint('The word ' + esc(h.th) + '. Use <b>ไปที่ · jump to</b> to reach its picture, its origin or the words built from it. Tap a number on the picture to read that meaning. <b>แผนที่ · map</b> shows everything linked to ' + esc(h.th) + ' and where you came from.');
     main.querySelectorAll('.jump [data-to]').forEach(function (b) { b.addEventListener('click', function () {
       var el = document.getElementById(b.getAttribute('data-to')); if (!el) return;
       if (el.tagName === 'DETAILS') el.open = true;
@@ -452,7 +453,7 @@ function openSheet(html, label) {
   sheet.querySelector('.sh-close').addEventListener('click', closeSheet);
 }
 function closeSheet() { sheet.hidden = true; sheet.innerHTML = ''; document.body.classList.remove('has-sheet'); }
-document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if (!guideEl.hidden) closeGuide(); else closeSheet(); } });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if (!mapEl.hidden) closeMap(); else if (!guideEl.hidden) closeGuide(); else closeSheet(); } });
 /* a swipe down on the panel's top closes it */
 (function () { var y0 = null; sheet.addEventListener('touchstart', function (e) { y0 = sheet.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
   sheet.addEventListener('touchend', function (e) { if (y0 != null && e.changedTouches[0].clientY - y0 > 90) closeSheet(); y0 = null; }, { passive: true }); })();
@@ -545,7 +546,7 @@ function pageWord(th) {
       (sibs.length ? fold('คำอื่นในความหมายเดียวกัน', 'other words built on ' + esc(h.th) + ', meaning ' + sn.n + (sn.en ? ' (' + esc(sn.en) + ')' : ''), sibs.length, crows(sibs.slice().sort(function (a, b) { return thCmp(a.th, b.th); }).map(function (x) { return crow(x.th, x.r, x.en, x.parts, x.lit, h.th); }).join('')), true, 'd:plant') : '')
     );
     restoreScroll();
-    hint('The compound ' + esc(th) + ', built from ' + c.parts.map(esc).join(' + ') + '. Tap a part to open it, or <b>' + esc(h.th) + '</b> to see every word built from it.');
+    hint('The compound ' + esc(th) + ', built from ' + c.parts.map(esc).join(' + ') + '. Tap a part to open it, or <b>' + esc(h.th) + '</b> to see every word built from it. <b>แผนที่ · map</b> shows its relatives.');
     var cv = document.getElementById('ktree');
     pic(cv, function (cc, W, H, t) { return MDTREE.draw(cc, W, H, t, h, { sky: true, hi: sn.n, leaf: th, sign: true }); });
   }).catch(pageMissing);
@@ -859,6 +860,138 @@ function guide() {
   document.getElementById('gnext').focus();
 }
 function closeGuide() { guideEl.hidden = true; guideEl.innerHTML = ''; document.body.classList.remove('has-guide'); store('guided', 1); var inv = main.querySelector('.invite'); if (inv) inv.remove(); }
+
+/* ---------------------------------------------------------------- the map: you are here, and every way on from here */
+var mapEl = document.getElementById('map'), MAPK = {
+  came: ['ทางที่มา', 'the way you came', '#8a7a68'],
+  meanings: ['ความหมาย', 'its meanings', '#6b4426'],
+  built: ['คำที่สร้างจากคำนี้', 'words built from it', '#2f7a46'],
+  shares: ['ใช้คำร่วมกัน', 'shares compounds with', '#c8862a'],
+  topic: ['หมวดเดียวกัน', 'same topic', '#24507a'],
+  origin: ['ที่มาเดียวกัน', 'same origin', '#7a3a6e'],
+  parts: ['ส่วนประกอบ', 'its parts', '#9a2a1f'],
+  head: ['คำหลัก', 'filed under', '#2f7a46'],
+  siblings: ['ความหมายเดียวกัน', 'same meaning of the head word', '#5a8a3a'],
+  kin: ['มีส่วนเดียวกัน', 'share a part', '#c8862a'],
+  places: ['ส่วนต่าง ๆ', 'places in the garden', '#24507a'],
+  recent: ['เพิ่งเปิด', 'recently opened', '#7a3a6e']
+};
+var MAP_SORTS = [['close', 'ใกล้ชิดที่สุด · closest link'], ['nc', 'คำที่สร้างมาก · most words built'], ['th', 'ก–ฮ · Thai alphabetical']];
+function headItem(kind, s2, score, why) { var o = BY[s2]; return { kind: kind, th: o.th, sub: o.en.split(',')[0], href: '#/w/' + s2, score: score || 0, nc: o.nc, why: why || '' }; }
+function wordItem(kind, th, score, why) {
+  var hs = IDX.byTh[th]; if (hs) return headItem(kind, hs, score, why);
+  var c = cinfo(th); return { kind: kind, th: th, sub: c ? (c[2] || '').split(/[;,]/)[0] : '', href: wordHref(th) || '#/', score: score || 0, nc: c && BY[c[3]] ? BY[c[3]].nc : 0, why: why || '' };
+}
+function mapData() {
+  var hsh = decodeURIComponent(location.hash.replace(/^#\/?/, '')), p = hsh.split('/'), items = [], center;
+  PATH.slice(0, -1).forEach(function (q, i) { items.push({ kind: 'came', th: q[1].split(' · ')[0], sub: q[1].split(' · ').slice(1).join(' · '), href: q[0], score: i + 1, nc: 0, step: i }); });
+  if (p[0] === 'w' && BY[p[1]]) {
+    var s = p[1], b = BY[s], H = HEADS[s];
+    center = { th: b.th, sub: b.en.split(',')[0], kind: 'head' };
+    (H ? H.senses : b.sen.map(function (r) { return { n: r[0], en: r[1], via: r[3], c: { length: r[4] } }; })).forEach(function (sn) { items.push({ kind: 'meanings', th: String(sn.n), sub: sn.en || '', href: '#/w/' + s + '/' + sn.n, score: sn.c.length, nc: sn.c.length, why: sn.c.length + ' words', col: viaCol(sn.via) }); });
+    IDX.compounds.forEach(function (c) { if (c[3] === s) items.push({ kind: 'built', th: c[0], sub: (c[2] || '').split(/[;,]/)[0], href: '#/k/' + enc(c[0]), score: 1, nc: 0, why: c[7] ? c[7].replace(/\+/g, ' + ') : '' }); });
+    IDX.edges.forEach(function (e) { if (e[0] === s || e[1] === s) { var o = e[0] === s ? e[1] : e[0]; items.push(headItem('shares', o, e[2], e[3].slice(0, 3).join(' · '))); } });
+    var d0 = b.d[0]; IDX.heads.forEach(function (o) { if (o.s === s) return; if (d0 && o.d[0] === d0) items.push(headItem('topic', o.s, 0, dom(d0).en)); if (o.o === b.o) items.push(headItem('origin', o.s, 0, ORIGIN[b.o][1])); });
+  } else if (p[0] === 'k' && cinfo(p.slice(1).join('/'))) {
+    var th = p.slice(1).join('/'), c = cinfo(th), hs2 = c[3], parts = c[7] ? c[7].split('+') : [];
+    center = { th: th, sub: (c[2] || '').split(/[;,]/)[0], kind: 'word' };
+    parts.forEach(function (q) { if (wordHref(q)) items.push(wordItem('parts', q, 3, glossOf(q))); });
+    if (BY[hs2]) items.push(headItem('head', hs2, 3, 'meaning ' + c[4]));
+    IDX.compounds.forEach(function (x) { if (x[3] === hs2 && x[4] === c[4] && x[0] !== th) items.push({ kind: 'siblings', th: x[0], sub: (x[2] || '').split(/[;,]/)[0], href: '#/k/' + enc(x[0]), score: 1, nc: 0, why: x[7] ? x[7].replace(/\+/g, ' + ') : '' }); });
+    var seenK = {}; parts.forEach(function (q) { ((IDX.words[q] || {}).i || []).forEach(function (i) { if (i[0] !== th && !seenK[i[0]]) { seenK[i[0]] = 1; items.push(wordItem('kin', i[0], 1, 'with ' + q)); } }); });
+  } else {
+    var lab = PATH.length ? PATH[PATH.length - 1][1] : 'สวน · home';
+    center = { th: lab.split(' · ')[0], sub: lab.split(' · ').slice(1).join(' · '), kind: 'page' };
+    [['#/', 'สวน', 'home'], ['#/all', 'คำทั้งหมด', 'all words'], ['#/beds', 'หมวด', 'topics'], ['#/seeds', 'ที่มา', 'origins'], ['#/grafts', 'ความหมายงอก', 'how meanings grow'], ['#/shapes', 'รูปคำ', 'word shapes'],
+     ['#/weeds', 'คำหน้าเหมือน', 'lookalikes'], ['#/notes', 'สมุด', 'notebook'], ['#/net', 'ตาข่าย', 'net'], ['#/play', 'เล่น', 'play'], ['#/trail', 'ประวัติ', 'history']].forEach(function (q, i) {
+      if (q[0] !== location.hash && !(q[0] === '#/' && !hsh)) items.push({ kind: 'places', th: q[1], sub: q[2], href: q[0], score: 20 - i, nc: 0 });
+    });
+    trail().slice(-12).reverse().forEach(function (t2, i) { items.push({ kind: 'recent', th: t2[1], sub: String(t2[2] || '').split(',')[0], href: t2[0], score: 12 - i, nc: 0 }); });
+  }
+  return { center: center, items: items };
+}
+var mapState = { kind: '', sort: 'close' };
+function openMap() {
+  var D = mapData(), kinds = [];
+  D.items.forEach(function (it) { if (kinds.indexOf(it.kind) < 0) kinds.push(it.kind); });
+  if (mapState.kind && kinds.indexOf(mapState.kind) < 0) mapState.kind = '';
+  mapEl.innerHTML = '<div class="map-box">' +
+    '<div class="map-top"><div><small>แผนที่ · map</small><b>คุณอยู่ที่ <span>' + esc(D.center.th) + '</span></b><small>you are here' + (D.center.sub ? ': ' + esc(D.center.sub) : '') + '</small></div><button class="sh-close" id="mapx" aria-label="ปิด · close">×</button></div>' +
+    '<div class="map-kinds" role="group" aria-label="แสดง · show"><button data-k=""' + (mapState.kind ? '' : ' aria-pressed="true"') + '>ทั้งหมด · all</button>' +
+      kinds.map(function (k) { var n = D.items.filter(function (i) { return i.kind === k; }).length; return '<button data-k="' + k + '"' + (mapState.kind === k ? ' aria-pressed="true"' : '') + '><i style="background:' + MAPK[k][2] + '"></i>' + MAPK[k][0] + ' · ' + MAPK[k][1] + ' <em>' + n + '</em></button>'; }).join('') + '</div>' +
+    '<div class="map-stage"><canvas id="mapcv" aria-label="แผนที่ · a map of what links to ' + esc(D.center.th) + '"></canvas></div>' +
+    '<div class="map-sort" role="group" aria-label="เรียง · sort"><span>ไปต่อที่ไหน · where next, sorted by</span>' + MAP_SORTS.map(function (q) { return '<button data-s="' + q[0] + '"' + (mapState.sort === q[0] ? ' aria-pressed="true"' : '') + '>' + q[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="map-list" id="maplist"></div></div>';
+  mapEl.hidden = false; document.body.classList.add('has-guide');
+  function chosen() {
+    var list = D.items.filter(function (i) { return mapState.kind ? i.kind === mapState.kind : true; });
+    var k = mapState.sort;
+    return list.slice().sort(function (a, b) { return k === 'th' ? thCmp(a.th, b.th) : k === 'nc' ? (b.nc - a.nc) || thCmp(a.th, b.th) : (b.score - a.score) || (b.nc - a.nc) || thCmp(a.th, b.th); });
+  }
+  function drawList() {
+    var list = chosen(), groups = {};
+    if (mapState.kind) groups[mapState.kind] = list; else list.forEach(function (i) { (groups[i.kind] = groups[i.kind] || []).push(i); });
+    document.getElementById('maplist').innerHTML = kinds.filter(function (k) { return groups[k]; }).map(function (k) {
+      var g = groups[k], cap = mapState.kind ? 400 : 8;
+      return '<section><h3><i style="background:' + MAPK[k][2] + '"></i>' + MAPK[k][0] + ' · ' + MAPK[k][1] + ' <small>' + g.length + '</small></h3>' +
+        g.slice(0, cap).map(function (i) { return '<a class="mrow" href="' + i.href + '"><i style="background:' + (i.col || MAPK[k][2]) + '"></i><b>' + esc(i.th) + '</b><span>' + esc(i.sub) + (i.why ? ' <small>' + esc(i.why) + '</small>' : '') + '</span>' + (i.nc && k !== 'meanings' ? '<em>' + i.nc + '</em>' : '') + '</a>'; }).join('') +
+        (g.length > cap ? '<button class="btn ghost more" data-k="' + k + '">ดูทั้ง ' + g.length + ' · show all ' + g.length + '</button>' : '') + '</section>';
+    }).join('');
+    mapEl.querySelectorAll('.more').forEach(function (b) { b.addEventListener('click', function () { mapState.kind = b.getAttribute('data-k'); openMap(); }); });
+  }
+  var cv = document.getElementById('mapcv');
+  pic(cv, function (c, W, H, t) {
+    var list = chosen(), cx = W * 0.54, cy = H * 0.47, RX = W * 0.35, RY = H * 0.37, hits = [];
+    var cs = getComputedStyle(document.body), ink = cs.getPropertyValue('--ink') || '#23180f';
+    c.fillStyle = cs.getPropertyValue('--card') || '#fffaf0'; c.fillRect(0, 0, W, H);
+    var came = list.filter(function (i) { return i.kind === 'came'; }).sort(function (a, b) { return a.step - b.step; }).slice(-4);
+    var rest = list.filter(function (i) { return i.kind !== 'came'; });
+    var ks = []; rest.forEach(function (i) { if (ks.indexOf(i.kind) < 0) ks.push(i.kind); });
+    var per = mapState.kind ? (W < 520 ? 12 : 18) : Math.max(3, Math.floor((W < 520 ? 16 : 26) / Math.max(1, ks.length)));
+    var nodes = [];
+    /* the way you came: stepping stones from the left edge into the centre */
+    came.forEach(function (i, j) { var u = (j + 1) / (came.length + 1); nodes.push({ it: i, x: W * 0.07 + (cx - W * 0.07) * u * 0.85, y: H * 0.9 - (H * 0.9 - cy) * u * u, r: 11, col: MAPK.came[2] }); });
+    /* everything else on a ring round the centre, one sector per kind */
+    var span = came.length ? Math.PI * 1.55 : Math.PI * 2, a0 = came.length ? -Math.PI * 0.95 : -Math.PI / 2, slot = span / Math.max(1, ks.length);
+    ks.forEach(function (k, ki) {
+      var g = rest.filter(function (i) { return i.kind === k; }).slice(0, per), n = g.length;
+      g.forEach(function (i, j) {
+        var ring = n > 5 ? (j % 2 ? 1.0 : 0.66) : 0.88, a = a0 + slot * ki + slot * (n === 1 ? 0.5 : (j + 0.5) / n);
+        nodes.push({ it: i, x: cx + Math.cos(a) * RX * ring, y: cy + Math.sin(a) * RY * ring, r: 9 + Math.min(8, Math.sqrt(i.nc || 1) * 0.8), col: i.col || MAPK[k][2] });
+      });
+    });
+    nodes.forEach(function (n2) {
+      c.strokeStyle = n2.it.kind === 'came' ? 'rgba(120,100,80,.5)' : n2.col; c.globalAlpha = n2.it.kind === 'came' ? 1 : 0.45; c.lineWidth = 2;
+      c.setLineDash(n2.it.kind === 'came' ? [5, 6] : []); c.beginPath(); c.moveTo(cx, cy); c.lineTo(n2.x, n2.y); c.stroke(); c.setLineDash([]); c.globalAlpha = 1;
+    });
+    if (came.length) { c.strokeStyle = 'rgba(120,100,80,.6)'; c.setLineDash([5, 6]); c.beginPath(); came.forEach(function (i, j) { var n2 = nodes[j]; j ? c.lineTo(n2.x, n2.y) : c.moveTo(n2.x, n2.y); }); c.stroke(); c.setLineDash([]); }
+    nodes.forEach(function (n2) {
+      MDSKY.paper(c, function (q) { q.beginPath(); q.arc(n2.x, n2.y, n2.r, 0, 6.283); }, n2.col, 0.5);
+      c.fillStyle = ink; c.font = '500 ' + (n2.it.kind === 'meanings' ? 13 : 14) + 'px Mitr, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'top';
+      var lab = n2.it.kind === 'meanings' ? n2.it.th + ' ' + (n2.it.sub || '').slice(0, 14) : n2.it.th;
+      var mx = W < 520 ? 9 : 14; c.fillText(lab.length > mx ? lab.slice(0, mx - 1) + '…' : lab, n2.x, n2.y + n2.r + 3);
+      if (n2.it.kind === 'meanings') { c.fillStyle = '#fffaf0'; c.font = '600 12px Mitr, sans-serif'; c.textBaseline = 'middle'; c.fillText(n2.it.th, n2.x, n2.y + 1); }
+      hits.push({ x: n2.x, y: n2.y, r: n2.r + 14, href: n2.it.href });
+    });
+    /* you are here */
+    var pu = 0.5 + 0.5 * Math.sin(t / 300);
+    c.strokeStyle = 'rgba(217,154,34,' + (0.4 + 0.5 * pu) + ')'; c.lineWidth = 4; c.beginPath(); c.arc(cx, cy, 40 + pu * 6, 0, 6.283); c.stroke();
+    MDSKY.paper(c, function (q) { q.beginPath(); q.arc(cx, cy, 34, 0, 6.283); }, '#d99a22', 1.2);
+    c.fillStyle = '#2a1a08'; c.font = '600 ' + (D.center.th.length > 4 ? 15 : 20) + 'px Mitr, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(D.center.th.length > 8 ? D.center.th.slice(0, 7) + '…' : D.center.th, cx, cy);
+    c.fillStyle = ink; c.font = '600 12px Sarabun, sans-serif'; c.fillText('คุณอยู่ที่นี่ · you are here', cx, cy + 50);
+    return hits;
+  });
+  cv.addEventListener('click', function (e) { var h = hitAt(cv, e); if (h) { closeMap(); location.hash = h.href; } });
+  mapEl.querySelectorAll('.map-kinds button').forEach(function (b) { b.addEventListener('click', function () { mapState.kind = b.getAttribute('data-k'); openMap(); }); });
+  mapEl.querySelectorAll('.map-sort button').forEach(function (b) { b.addEventListener('click', function () { mapState.sort = b.getAttribute('data-s'); mapEl.querySelectorAll('.map-sort button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); drawList(); cv._dirty = 1; }); });
+  mapEl.querySelector('#maplist').addEventListener('click', function (e) { if (e.target.closest('a')) closeMap(); });
+  document.getElementById('mapx').addEventListener('click', closeMap);
+  wire(mapEl); drawList(); document.getElementById('mapx').focus();
+}
+function closeMap() { mapEl.hidden = true; mapEl.innerHTML = ''; document.body.classList.remove('has-guide'); }
+document.getElementById('mapbtn').addEventListener('click', function () { mapState.kind = ''; openMap(); });
+mapEl.addEventListener('click', function (e) { if (e.target === mapEl) closeMap(); });
 
 /* ---------------------------------------------------------------- routing */
 function route() {
