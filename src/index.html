@@ -25,24 +25,23 @@
 </head>
 <body>
 <header class="top">
+  <button id="back" class="iconbtn back" aria-label="ย้อนกลับ · back" hidden>‹</button>
   <a class="brand" href="#/"><canvas class="brand-pic" width="44" height="44" data-mark="x:garden"></canvas><span><b>สวนคำ</b><small>The Word Garden</small></span></a>
-  <form class="find" role="search" onsubmit="return false"><input id="q" type="search" autocomplete="off" placeholder="หาคำ · find a word (ไทย, roman, English)" aria-label="find a word"><div id="hits" class="hits" hidden></div></form>
-  <button id="wander" class="wander" title="เดินเล่น · wander"><canvas width="40" height="40" data-mark="x:wander"></canvas><span>เดินเล่น<small>wander</small></span></button>
+  <form class="find" role="search" onsubmit="return false"><input id="q" type="search" autocomplete="off" placeholder="หาคำ · find a word" aria-label="หาคำ · find a word in Thai, romanised or English"><div id="hits" class="hits" hidden></div></form>
+  <button id="help" class="iconbtn" aria-label="วิธีดูต้นไม้ · how to read a tree" title="วิธีดูต้นไม้ · how to read a tree">?</button>
+  <button id="wander" class="wander" title="เดินเล่น · wander to a linked word"><canvas width="40" height="40" data-mark="x:wander"></canvas><span>เดินเล่น<small>wander</small></span></button>
 </header>
-<nav class="tabs" id="tabs">
-  <a href="#/" data-t="home">สวน<small>garden</small></a>
-  <a href="#/net" data-t="net">ตาข่าย<small>net</small></a>
-  <a href="#/beds" data-t="beds">แปลง<small>beds</small></a>
-  <a href="#/seeds" data-t="seeds">เมล็ด<small>seeds</small></a>
-  <a href="#/grafts" data-t="grafts">กิ่ง<small>branches</small></a>
-  <a href="#/shapes" data-t="shapes">รูปคำ<small>shapes</small></a>
-  <a href="#/weeds" data-t="weeds">วัชพืช<small>weeds</small></a>
-  <a href="#/notes" data-t="notes">สมุด<small>notebook</small></a>
-  <a href="#/play" data-t="play">เล่น<small>play</small></a>
-  <a href="#/trail" data-t="trail">รอยเท้า<small>trail</small></a>
+<nav class="nav" id="nav" aria-label="ส่วนต่าง ๆ · sections">
+  <a href="#/" data-t="home"><canvas data-mark="x:garden"></canvas><b>สวน</b><small>garden</small></a>
+  <a href="#/explore" data-t="explore"><canvas data-mark="x:search"></canvas><b>สำรวจ</b><small>explore</small></a>
+  <a href="#/net" data-t="net"><canvas data-mark="x:net"></canvas><b>ตาข่าย</b><small>net</small></a>
+  <a href="#/play" data-t="play"><canvas data-mark="x:wander"></canvas><b>เล่น</b><small>play</small></a>
+  <a href="#/trail" data-t="trail"><canvas data-mark="x:trail"></canvas><b>รอยเท้า</b><small>trail</small></a>
 </nav>
 <main id="main" tabindex="-1"><div class="loading"><canvas width="160" height="160" data-mark="x:garden"></canvas><p>กำลังปลูก… planting…</p></div></main>
 <footer class="foot" id="foot"></footer>
+<div id="sheet" class="sheet" role="dialog" aria-modal="false" aria-label="กิ่ง · branch" hidden></div>
+<div id="guide" class="guide" role="dialog" aria-modal="true" aria-label="วิธีดูต้นไม้ · how to read a tree" hidden></div>
 <script src="skyline.js"></script>
 <script src="doodler.js"></script>
 <script src="doodler-kham-heads.js"></script>

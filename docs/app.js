@@ -1,10 +1,12 @@
 /* สวนคำ · The Word Garden — 180 filed Thai heads from the wichaa lexicon, each a fractal tree.
-   Routes: #/ · #/w/<slug>[/<sense>] · #/k/<thai> · #/net · #/beds · #/bed/<d> · #/seeds · #/seed/<o>
-   #/grafts · #/via/<kind> · #/shapes · #/shape/<pattern> · #/weeds · #/notes[/<slug>] · #/play · #/trail */
+   Routes: #/ · #/w/<slug>[/<sense>[/<leaf>]] · #/k/<thai> · #/explore · #/net · #/beds · #/bed/<d>
+   #/seeds · #/seed/<o> · #/grafts · #/via/<kind> · #/shapes · #/shape/<pattern> · #/weeds · #/notes[/<slug>]
+   #/play · #/trail */
 (function () {
 'use strict';
-var IDX = null, HEADS = {}, BY = {}, NOTES = null, CACHE = {};
+var IDX = null, HEADS = {}, BY = {}, CACHE = {};
 var main = document.getElementById('main'), foot = document.getElementById('foot');
+var sheet = document.getElementById('sheet'), guideEl = document.getElementById('guide');
 var VIA = window.MDTREE.VIA;
 var ORIGIN = {
   tai: ['ไทแท้', 'inherited Tai'], sanskrit: ['สันสกฤต', 'Sanskrit'], pali: ['บาลี', 'Pali'], khmer: ['เขมร', 'Khmer'],
@@ -15,6 +17,11 @@ var USE = { 'false-split': ['คำพ้องรูป', 'lookalike'], 'spelli
   biological: ['ชื่อสิ่งมีชีวิต', 'living thing'], 'personal-name': ['ชื่อคน', 'personal name'] };
 var FRAME = { entity: ['สิ่ง', 'a thing'], quality: ['ลักษณะ', 'a quality'], act: ['การกระทำ', 'an act'], state: ['สภาพ', 'a state'], trait: ['นิสัย', 'a trait'] };
 var POS = { 'N': 'noun', 'V': 'verb', 'ADJ': 'adjective', 'PROP': 'name', 'PREP': 'preposition', 'ADV': 'adverb', 'NUM': 'number', 'CLF': 'classifier' };
+var VIA_SAY = {
+  metaphor: 'one thing seen as another', metonymy: 'a thing named for its neighbour', specialisation: 'the meaning narrowed',
+  generalisation: 'the meaning widened', euphemism: 'a softer way to say it', '': 'the first meaning'
+};
+var STARTERS = ['nam', 'hua', 'ta', 'luk', 'ban', 'fai', 'khao', 'chang', 'mue', 'pak'];
 
 /* ---------------------------------------------------------------- small things */
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -31,17 +38,22 @@ function hlink(s) { var h = BY[s]; return h ? '<a class="thai-link" href="#/w/' 
 function wordHref(th) { if (IDX.byTh[th]) return '#/w/' + IDX.byTh[th]; if (IDX.words[th]) return '#/k/' + enc(th); return null; }
 function thLink(th) { var h = wordHref(th); return h ? '<a class="thai-link" href="' + h + '">' + esc(th) + '</a>' : esc(th); }
 function linkifyThai(text) { return esc(text).replace(/[฀-๿]+/g, function (w) { return wordHref(w) ? thLink(w) : w; }); }
+function rich(text) { return linkifyThai(text).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>'); }
 function md(text) {
   if (/^\|/.test(text) || /^ {4}/m.test(text)) return '<pre>' + linkifyThai(text) + '</pre>';
   return '<p>' + linkifyThai(text).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\n/g, ' ') + '</p>';
 }
-function section(title, sub, mark) { return '<h2>' + (mark ? '<canvas data-mark="' + mark + '"></canvas>' : '') + '<span>' + title + (sub ? ' <small>' + sub + '</small>' : '') + '</span></h2>'; }
+function section(th, en, mark, n) { return '<h2>' + (mark ? '<canvas data-mark="' + mark + '"></canvas>' : '') + '<span>' + th + (en ? ' <small>' + en + (n != null ? ' · ' + n : '') + '</small>' : '') + '</span></h2>'; }
+/* a folded section: the heading says what is inside and how many */
+function fold(th, en, n, body, open, mark) {
+  return '<details class="fold"' + (open ? ' open' : '') + '><summary>' + (mark ? '<canvas data-mark="' + mark + '"></canvas>' : '') + '<span><b>' + th + '</b> <small>' + en + '</small></span>' + (n != null ? '<em>' + n + '</em>' : '') + '</summary><div class="fold-in">' + body + '</div></details>';
+}
 
 /* ---------------------------------------------------------------- the pictures: one loop draws what is on screen */
 var PICS = [], seen = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(function (es) { es.forEach(function (e) { e.target._vis = e.isIntersecting; }); }) : null;
 function pic(cv, draw) {
-  cv._draw = draw; cv._vis = !seen; if (seen) seen.observe(cv);
-  PICS.push(cv); return cv;
+  cv._draw = draw; cv._vis = !seen; cv._done = 0; if (seen) seen.observe(cv);
+  if (PICS.indexOf(cv) < 0) PICS.push(cv); return cv;
 }
 function sizeOf(cv) {
   var dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth || cv.width, h = cv.clientHeight || cv.height;
@@ -52,11 +64,11 @@ var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').
 function frame(t) {
   PICS = PICS.filter(function (cv) { return cv.isConnected; });
   PICS.forEach(function (cv) {
-    if (!cv._vis || (still && cv._done)) return;
+    if (!cv._vis || (still && cv._done && !cv._dirty)) return;
     var s = sizeOf(cv), c = cv.getContext('2d');
     c.setTransform(s[2], 0, 0, s[2], 0, 0); c.clearRect(0, 0, s[0], s[1]);
     try { cv._hits = cv._draw(c, s[0], s[1], t) || cv._hits; } catch (e) { if (!cv._err) { cv._err = 1; console.error(e); } }
-    cv._done = 1;
+    cv._done = 1; cv._dirty = 0;
   });
   requestAnimationFrame(frame);
 }
@@ -78,71 +90,84 @@ function headDraw(h) {
     markDraw('x:garden')(c, W, H, t);
   };
 }
-function hasPic(s) { return !!(window.MDKHAMHEADS && MDKHAMHEADS.keys && MDKHAMHEADS.keys.indexOf(s) >= 0); }
 function wire(root) {
   (root || document).querySelectorAll('canvas[data-mark]').forEach(function (cv) { if (!cv._draw) pic(cv, markDraw(cv.getAttribute('data-mark'))); });
   (root || document).querySelectorAll('canvas[data-head]').forEach(function (cv) { if (!cv._draw) pic(cv, headDraw(BY[cv.getAttribute('data-head')] || { s: cv.getAttribute('data-head') })); });
   (root || document).querySelectorAll('canvas[data-tree]').forEach(function (cv) { if (!cv._draw) { var h = BY[cv.getAttribute('data-tree')]; pic(cv, function (c, W, H, t) { return MDTREE.draw(c, W, H, t, h, { mini: true }); }); } });
 }
-/* a tap on a canvas finds the nearest hit within its radius */
-function hitAt(cv, ev) {
+/* a tap on a canvas finds the nearest hit within its radius; a near miss on a branch still counts */
+function hitAt(cv, ev, slack) {
   var r = cv.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top, best = null, bd = 1e9;
-  (cv._hits || []).forEach(function (h) { var d = Math.hypot(h.x - x, h.y - y); if (d < h.r && d < bd) { bd = d; best = h; } });
+  (cv._hits || []).forEach(function (h) { var d = Math.hypot(h.x - x, h.y - y); if (h.r && d < h.r * (slack || 1) && d < bd) { bd = d; best = h; } });
   return best;
 }
 
-/* ---------------------------------------------------------------- trail */
+/* ---------------------------------------------------------------- trail and scroll memory */
 function trail() { return store('trail') || []; }
-function step(href, label) {
-  var t = trail().filter(function (x) { return x[0] !== href; }); t.push([href, label]); if (t.length > 60) t = t.slice(-60); store('trail', t); drawFoot();
+function step(href, label, en) {
+  var t = trail().filter(function (x) { return x[0] !== href; }); t.push([href, label, en || '']); if (t.length > 80) t = t.slice(-80); store('trail', t);
 }
 function drawFoot() {
-  var t = trail().slice(-12);
-  foot.innerHTML = (t.length ? '<div class="trail" aria-label="รอยเท้า trail">' + t.map(function (x) { return '<a href="' + x[0] + '">' + esc(x[1]) + '</a>'; }).join('') + '</div>' : '') +
-    '<p>' + IDX.counts.heads + ' คำ · ' + IDX.counts.senses + ' ความหมาย · ' + IDX.counts.compounds + ' คำประสม — from the wichaa lexicon (manuscript-wiki), its filing tables and the compound filer\'s notebook. Thai glosses: the Royal Institute dictionary and Wiktionary, as the lexicon records them. English the lexicon lacked was written for this garden: 4,584 glosses by DeepSeek V4 Flash, 135 by Claude. Roots: the lexicon\'s etymologies and the ThaiRoots inventory. Pictures: the motdang doodler.</p>';
+  foot.innerHTML = '<p>' + IDX.counts.heads + ' คำ · ' + IDX.counts.senses + ' ความหมาย · ' + IDX.counts.compounds + ' คำประสม — from the wichaa lexicon (manuscript-wiki), its filing tables and the compound filer\'s notebook. Thai glosses: the Royal Institute dictionary and Wiktionary, as the lexicon records them. English the lexicon lacked was written for this garden: 4,584 glosses by DeepSeek V4 Flash, 135 by Claude. Roots: the lexicon\'s etymologies and the ThaiRoots inventory. Pictures: the motdang doodler. <a href="privacy.html">Privacy</a></p>';
 }
+var SCROLL = {}, lastY = 0, curHash = location.hash;
+window.addEventListener('scroll', function () { lastY = window.scrollY; }, { passive: true });
+function restoreScroll() { var y = SCROLL[location.hash]; if (y) requestAnimationFrame(function () { window.scrollTo(0, y); }); }
 
-/* ---------------------------------------------------------------- search */
-function fold(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[\s\-·.,;]+/g, ''); }
-var q = document.getElementById('q'), hitsEl = document.getElementById('hits'), hitSel = 0;
+/* ---------------------------------------------------------------- search (top bar and the home page share it) */
+function foldS(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[\s\-·.,;]+/g, ''); }
 function search(v) {
-  var f = fold(v), th = /[฀-๿]/.test(v), out = [];
+  var f = foldS(v), th = /[฀-๿]/.test(v), out = [];
   if (!f) return out;
   IDX.heads.forEach(function (h) {
     var sc = th ? (h.th === v ? 100 : h.th.indexOf(v) === 0 ? 60 : h.th.indexOf(v) >= 0 ? 30 : 0)
-      : (fold(h.r) === f ? 90 : fold(h.r).indexOf(f) === 0 ? 50 : 0) + (fold(h.en).indexOf(f) >= 0 ? 40 : 0) + (fold(h.p) === f ? 60 : 0);
-    if (sc) out.push([sc + 5, h.th, h.r, h.en, '#/w/' + h.s]);
+      : (foldS(h.r) === f ? 90 : foldS(h.r).indexOf(f) === 0 ? 50 : 0) + (foldS(h.en).indexOf(f) >= 0 ? 40 : 0) + (foldS(h.p) === f ? 60 : 0);
+    if (sc) out.push([sc + 5, h.th, h.r, h.en, '#/w/' + h.s, 'tree', h.s]);
   });
   IDX.compounds.forEach(function (c) {
     var sc = th ? (c[0] === v ? 80 : c[0].indexOf(v) === 0 ? 40 : c[0].indexOf(v) >= 0 ? 18 : 0)
-      : (fold(c[1]) === f ? 70 : fold(c[1]).indexOf(f) === 0 ? 30 : 0) + (fold(c[2]).indexOf(f) >= 0 ? (fold(c[2]) === f ? 50 : 20) : 0);
-    if (sc) out.push([sc, c[0], c[1], c[2], '#/k/' + enc(c[0])]);
+      : (foldS(c[1]) === f ? 70 : foldS(c[1]).indexOf(f) === 0 ? 30 : 0) + (foldS(c[2]).indexOf(f) >= 0 ? (foldS(c[2]) === f ? 50 : 20) : 0);
+    if (sc) out.push([sc, c[0], c[1], c[2], '#/k/' + enc(c[0]), 'leaf', c[3]]);
   });
   var seenK = {};
   return out.sort(function (a, b) { return b[0] - a[0] || a[1].length - b[1].length; }).filter(function (x) { if (seenK[x[4]]) return false; seenK[x[4]] = 1; return true; }).slice(0, 30);
 }
-q.addEventListener('input', function () {
-  var r = search(q.value.trim()); hitSel = 0;
-  hitsEl.hidden = !r.length;
-  hitsEl.innerHTML = r.map(function (x, i) { return '<a href="' + x[4] + '"' + (i ? '' : ' class="on"') + '><span class="t">' + esc(x[1]) + '</span><span class="r">' + esc(x[2]) + '</span><span class="e">' + esc(x[3]) + '</span></a>'; }).join('');
-});
-q.addEventListener('keydown', function (e) {
-  var as = hitsEl.querySelectorAll('a'); if (!as.length) return;
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); as[hitSel].classList.remove('on'); hitSel = (hitSel + (e.key === 'ArrowDown' ? 1 : as.length - 1)) % as.length; as[hitSel].classList.add('on'); }
-  if (e.key === 'Enter') { e.preventDefault(); location.hash = as[hitSel].getAttribute('href'); }
-  if (e.key === 'Escape') { hitsEl.hidden = true; }
-});
-hitsEl.addEventListener('click', function () { hitsEl.hidden = true; q.value = ''; q.blur(); });
-document.addEventListener('click', function (e) { if (!e.target.closest('.find')) hitsEl.hidden = true; });
+function hitRow(x, i) {
+  var tag = x[5] === 'tree' ? '<span class="kind tree">ต้น · tree</span>' : '<span class="kind leaf">ใบบน ' + esc(BY[x[6]] ? BY[x[6]].th : '') + '</span>';
+  return '<a href="' + x[4] + '"' + (i ? '' : ' class="on"') + '><span class="t">' + esc(x[1]) + '</span><span class="r">' + esc(x[2]) + '</span><span class="e">' + esc(x[3]) + '</span>' + tag + '</a>';
+}
+function attachSearch(input, box) {
+  var sel = 0;
+  function show() {
+    var v = input.value.trim(), r = search(v); sel = 0;
+    if (!v) {
+      box.innerHTML = '<div class="hits-head">ลองคำเหล่านี้ · try one of these</div>' + STARTERS.slice(0, 6).map(function (s, i) { var h = BY[s]; return hitRow([0, h.th, h.r, h.en, '#/w/' + s, 'tree', s], i); }).join('');
+    } else if (!r.length) {
+      box.innerHTML = '<div class="hits-none"><b>ไม่พบ “' + esc(v) + '”</b><br>No match. Type Thai script (น้ำ), a romanised spelling (nam) or English (water). The garden holds 180 head words and the 4,415 compounds built on them.</div>';
+    } else box.innerHTML = r.map(hitRow).join('');
+    box.hidden = false;
+  }
+  input.addEventListener('input', show);
+  input.addEventListener('focus', show);
+  input.addEventListener('keydown', function (e) {
+    var as = box.querySelectorAll('a'); if (!as.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); as[sel].classList.remove('on'); sel = (sel + (e.key === 'ArrowDown' ? 1 : as.length - 1)) % as.length; as[sel].classList.add('on'); as[sel].scrollIntoView({ block: 'nearest' }); }
+    if (e.key === 'Enter') { e.preventDefault(); location.hash = as[sel].getAttribute('href'); box.hidden = true; input.value = ''; input.blur(); }
+    if (e.key === 'Escape') { box.hidden = true; input.blur(); }
+  });
+  box.addEventListener('click', function (e) { if (e.target.closest('a')) { box.hidden = true; input.value = ''; input.blur(); } });
+  document.addEventListener('click', function (e) { if (!box.contains(e.target) && e.target !== input) box.hidden = true; });
+}
+attachSearch(document.getElementById('q'), document.getElementById('hits'));
 
 /* ---------------------------------------------------------------- speech: the phone's own Thai voice, where it has one */
 function thaiVoice() { if (!window.speechSynthesis) return null; var v = speechSynthesis.getVoices().filter(function (x) { return /^th/i.test(x.lang); }); return v[0] || null; }
 if (window.speechSynthesis) speechSynthesis.onvoiceschanged = function () { document.querySelectorAll('.speak[data-say]').forEach(function (b) { b.hidden = !(window.SKAndroid || thaiVoice()); }); };
 function speak(th) { if (window.SKAndroid) { try { SKAndroid.speak(th); } catch (e) { } return; } var v = thaiVoice(); if (!v) return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(th); u.voice = v; u.lang = v.lang; u.rate = 0.8; speechSynthesis.speak(u); }
-document.addEventListener('click', function (e) { var b = e.target.closest('.speak'); if (b) speak(b.getAttribute('data-say')); });
-function speakBtn(th) { return '<button class="speak" data-say="' + esc(th) + '"' + (window.SKAndroid || thaiVoice() ? '' : ' hidden') + '><canvas data-mark="x:speak"></canvas>ฟัง · hear it</button>'; }
+document.addEventListener('click', function (e) { var b = e.target.closest('.speak[data-say]'); if (b) { e.preventDefault(); speak(b.getAttribute('data-say')); } });
+function speakBtn(th, small) { return '<button class="speak' + (small ? ' sm' : '') + '" data-say="' + esc(th) + '"' + (window.SKAndroid || thaiVoice() ? '' : ' hidden') + ' aria-label="ฟัง ' + esc(th) + ' · hear it"><canvas data-mark="x:speak"></canvas>' + (small ? '' : 'ฟัง · hear it') + '</button>'; }
 
-/* ---------------------------------------------------------------- wander */
+/* ---------------------------------------------------------------- wander, back, help */
 var here = { kind: 'home' };
 document.getElementById('wander').addEventListener('click', function () {
   var go = null;
@@ -160,198 +185,270 @@ document.getElementById('wander').addEventListener('click', function () {
   }
   location.hash = go || '#/w/' + pick(IDX.heads).s;
 });
+var depth = 0;
+document.getElementById('back').addEventListener('click', function () { if (depth > 0) history.back(); else location.hash = '#/'; });
+document.getElementById('help').addEventListener('click', function () { guide(); });
 
 /* ---------------------------------------------------------------- pages */
-function setTab(t) { document.querySelectorAll('#tabs a').forEach(function (a) { a.classList.toggle('on', a.getAttribute('data-t') === t); }); }
-function put(html, tab) { main.innerHTML = html; setTab(tab); wire(main); window.scrollTo(0, 0); }
+var TABOF = { '': 'home', explore: 'explore', beds: 'explore', bed: 'explore', seeds: 'explore', seed: 'explore', grafts: 'explore', via: 'explore', shapes: 'explore', shape: 'explore', weeds: 'explore', notes: 'explore', net: 'net', play: 'play', trail: 'trail' };
+function setTab(t) { document.querySelectorAll('#nav a').forEach(function (a) { var on = a.getAttribute('data-t') === t; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }); }
+function put(html) { closeSheet(); main.innerHTML = html; wire(main); window.scrollTo(0, 0); }
 
 function todays() { var d = new Date(), k = d.getFullYear() * 400 + d.getMonth() * 32 + d.getDate(); var big = IDX.heads.filter(function (h) { return h.nc >= 15; }); return big[rnd(k)() * big.length | 0]; }
 
 function pageHome() {
-  var h = todays(), byDom = {};
-  IDX.heads.forEach(function (x) { var d = x.d[0] || 'd:plant'; (byDom[d] = byDom[d] || []).push(x); });
-  var doms = Object.keys(byDom).sort(function (a, b) { return byDom[b].length - byDom[a].length; });
+  var h = todays(), cnt = {}, last = trail().slice(-1)[0];
+  IDX.heads.forEach(function (x) { x.d.forEach(function (d) { cnt[d] = (cnt[d] || 0) + 1; }); });
+  var doms = Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; });
   put(
-    '<section class="hero-home">' +
-      '<div class="stage"><canvas id="today"></canvas><div class="tag">ต้นไม้วันนี้ · today\'s tree<b>' + esc(h.th) + '</b>' + esc(h.r) + ' · ' + esc(h.en) + '</div></div>' +
-      '<div class="intro card"><h1>สวนคำ<small>The Word Garden</small></h1>' +
-        '<p>' + IDX.counts.heads + ' Thai words, each grown as a fractal tree. A <b>branch</b> is one sense. It grows out of the sense it came from. A <b>leaf</b> is one compound word filed under that sense. A <b>weed</b> at the foot is a word that only looks like it contains the head.</p>' +
-        '<p class="muted">คำไทย ' + IDX.counts.heads + ' คำ ปลูกเป็นต้นไม้ กิ่งคือความหมาย ใบคือคำประสม วัชพืชคือคำที่หน้าตาเหมือนแต่ไม่ใช่</p>' +
-        '<div class="stats"><div><span class="num">' + IDX.counts.senses + '</span><small>กิ่ง · senses</small></div><div><span class="num">' + IDX.counts.compounds + '</span><small>ใบ · compounds</small></div><div><span class="num">' + IDX.counts.lookalikes + '</span><small>วัชพืช · lookalikes</small></div><div><span class="num">' + IDX.edges.length + '</span><small>กิ่งทาบ · links</small></div></div>' +
-        '<div class="legend">' + Object.keys(VIA).map(function (k) { return '<span><i style="background:' + VIA[k].col + '"></i>' + VIA[k].th + ' ' + VIA[k].en + '</span>'; }).join('') + '</div>' +
+    '<section class="home-hero">' +
+      '<div class="hh-text">' +
+        '<h1>สวนคำ <small>The Word Garden</small></h1>' +
+        '<p class="lede">ค้นคำไทยแล้วดูมันเติบโต · Look up a Thai word and watch it grow: each meaning a branch, each compound word a leaf, its history in the roots.</p>' +
+        '<div class="bigfind"><input id="q2" type="search" autocomplete="off" placeholder="พิมพ์คำ · type น้ำ, nam or water" aria-label="หาคำ · find a word"><div id="hits2" class="hits" hidden></div></div>' +
+        '<div class="starter-h">เริ่มจากคำนี้ · or start with one of these</div>' +
+        '<div class="starters">' + STARTERS.map(function (s) { var x = BY[s]; return '<a class="starter" href="#/w/' + s + '"><canvas data-head="' + s + '"></canvas><b>' + esc(x.th) + '</b><span>' + esc(x.en.split(',')[0]) + '</span></a>'; }).join('') + '</div>' +
       '</div>' +
+      '<a class="today" href="#/w/' + h.s + '"><canvas id="today"></canvas><div class="tag"><small>ต้นไม้วันนี้ · today\'s tree</small><b>' + esc(h.th) + '</b><span>' + esc(h.r) + ' · ' + esc(h.en) + '</span></div></a>' +
     '</section>' +
-    section('แปลงในสวน', 'the beds, by what the words are about', 'x:garden') +
-    '<div class="beds">' + doms.map(function (d) {
-      var hs = byDom[d].sort(function (a, b) { return b.nc - a.nc; });
-      return '<div class="bed"><a href="#/bed/' + enc(d) + '"><header><canvas data-mark="' + d + '"></canvas><div><b>' + esc(dom(d).th) + '</b><span>' + esc(dom(d).en) + ' · ' + hs.length + '</span></div></header></a><canvas class="plot" data-bed="' + d + '"></canvas></div>';
-    }).join('') + '</div>', 'home');
+    (store('guided') ? '' : '<div class="invite card"><canvas data-mark="x:garden"></canvas><div><b>ครั้งแรกใช่ไหม · new here?</b><p>Each tree is one Thai word. A one-minute tour shows how to read it.</p></div><button class="btn" id="tour">ดูวิธีอ่าน · show me</button></div>') +
+    (last ? '<a class="continue card" href="' + last[0] + '"><small>ต่อจากที่ค้างไว้ · carry on from</small><b>' + esc(last[1]) + '</b>' + (last[2] ? '<span>' + esc(last[2]) + '</span>' : '') + '<em>›</em></a>' : '') +
+    section('หมวด', 'browse by topic', 'd:plant') +
+    '<div class="topics">' + doms.map(function (d) {
+      return '<a class="topic" href="#/bed/' + enc(d) + '"><canvas data-mark="' + d + '"></canvas><b>' + esc(dom(d).th) + '</b><span>' + esc(dom(d).en) + '</span><em>' + cnt[d] + '</em></a>';
+    }).join('') + '</div>' +
+    section('ทางเข้าอื่น', 'more ways in', 'x:search') + exploreCards()
+  );
+  setTab('home');
+  attachSearch(document.getElementById('q2'), document.getElementById('hits2'));
   var cv = document.getElementById('today');
   pic(cv, function (c, W, H, t) { return MDTREE.draw(c, W, H, t, h, { sky: true, sign: false }); });
-  cv.addEventListener('click', function () { location.hash = '#/w/' + h.s; });
-  main.querySelectorAll('canvas.plot').forEach(function (p) { plot(p, byDom[p.getAttribute('data-bed')].slice(0, 9)); });
+  var tb = document.getElementById('tour'); if (tb) tb.addEventListener('click', function () { guide(); });
 }
 
-/* a row of small trees; a tap opens the one under the finger */
-function plot(cv, hs) {
-  pic(cv, function (c, W, H, t) {
-    var n = hs.length, w = W / Math.max(n, 4), hits = [];
-    c.fillStyle = '#e6d6b0'; c.fillRect(0, H * 0.82, W, H);
-    hs.forEach(function (h, i) {
-      var x = (i + 0.5) * w - w / 2;
-      c.save(); c.translate(x, 0); c.beginPath(); c.rect(0, 0, w, H); c.clip();
-      MDTREE.draw(c, w, H * 0.86, t + i * 500, h, { mini: true }); c.restore();
-      c.fillStyle = '#3a2a18'; c.font = '500 ' + Math.round(Math.min(18, w * 0.28)) + 'px Mitr, sans-serif'; c.textAlign = 'center'; c.fillText(h.th, x + w / 2, H - 6);
-      hits.push({ x: x + w / 2, y: H / 2, r: w / 1.6, s: h.s });
-    });
-    return hits;
-  });
-  cv.addEventListener('click', function (e) { var h = hitAt(cv, e); if (h) location.hash = '#/w/' + h.s; });
+function exploreCards() {
+  var cards = [
+    ['#/beds', 'x:garden', 'หมวด', 'Topics', 'Trees grouped by what they are about: the body, water, kinship, money…'],
+    ['#/seeds', 'o:sanskrit', 'ที่มา', 'Origins', 'Native Tai words, and words borrowed from Sanskrit, Pali, Khmer, Chinese and English.'],
+    ['#/grafts', 'v:metaphor', 'ความหมายงอก', 'How meanings grow', 'One meaning grows from another by metaphor, by naming a neighbour, by narrowing or widening.'],
+    ['#/net', 'x:net', 'ตาข่าย', 'The net', 'Trees joined by the compound words they share.'],
+    ['#/shapes', 'd:speech', 'รูปคำ', 'Word shapes', 'How compounds are built: noun + noun, verb + noun and more.'],
+    ['#/weeds', 'x:mask', 'วัชพืช', 'Lookalikes', 'Words that look like they contain a head word and do not.'],
+    ['#/notes', 'x:notebook', 'สมุด', 'Filer\'s notebook', 'Why each word\'s meanings were divided the way they are.']
+  ];
+  return '<div class="ways">' + cards.map(function (c) { return '<a class="way" href="' + c[0] + '"><canvas data-mark="' + c[1] + '"></canvas><div><b>' + c[2] + ' <small>' + c[3] + '</small></b><p>' + c[4] + '</p></div></a>'; }).join('') + '</div>';
+}
+function pageExplore() {
+  put(section('สำรวจ', 'explore the garden', 'x:search') + exploreCards());
+  setTab('explore');
 }
 
-function pageHead(s, hiN) {
+/* ---------------------------------------------------------------- a head: the tree, its meanings, its roots */
+function pageHead(s, hiN, leafTh) {
   var x = BY[s]; if (!x) return pageMissing();
   here = { kind: 'head', s: s };
+  main.innerHTML = '<div class="loading"><canvas width="120" height="120" data-head="' + s + '"></canvas><p>' + esc(x.th) + '</p></div>'; wire(main);
   head(s).then(function (h) {
-    step('#/w/' + s, h.th);
+    step('#/w/' + s, h.th, h.en);
+    var bySense = {}; h.senses.forEach(function (sn) { bySense[sn.n] = sn; });
     var inside = ((IDX.words[h.th] || {}).i || []).filter(function (i) { return i[1] !== s; });
     var grafts = IDX.edges.filter(function (e) { return e[0] === s || e[1] === s; });
-    var bySense = {}; h.senses.forEach(function (sn) { bySense[sn.n] = sn; });
-    function chain(sn) { var p = [], guard = 0, cur = sn; while (cur && guard++ < 12) { p.unshift(cur.n); cur = cur.ext != null ? bySense[cur.ext] : null; if (cur && p.indexOf(cur.n) >= 0) break; } return p; }
+    var hasRoots = rootsHave(h), viaUsed = {};
+    h.senses.forEach(function (sn) { viaUsed[sn.ext != null ? (sn.via || '') : ''] = 1; });
     put(
-      '<section class="word-top">' +
-        '<div class="tree-stage' + (rootsHave(h) ? ' roots' : '') + '"><canvas class="tree" id="tree"></canvas><div class="hint">ใบหนึ่ง = คำหนึ่ง · one leaf, one word</div>' +
-          '<div class="badge"><canvas data-head="' + s + '"></canvas></div><div class="peek" id="peek"></div></div>' +
-        '<div class="word-id card"><p class="th">' + esc(h.th) + '</p>' +
-          '<div class="say"><span class="rtgs">' + esc(h.r) + '</span><span class="pb">' + esc(h.p) + '</span><span class="ipa">' + esc(h.ipa) + '</span></div>' +
-          (h.resp ? '<div class="muted">อ่านว่า ' + esc(h.resp) + '</div>' : '') +
-          (h.en ? '<div class="en">' + esc(h.en) + '</div>' : '') + speakBtn(h.th) +
-          '<div class="stats"><div><span class="num">' + h.senses.length + '</span><small>กิ่ง · senses</small></div><div><span class="num">' + x.nc + '</span><small>ใบ · compounds</small></div><div><span class="num">' + h.look.length + '</span><small>วัชพืช · weeds</small></div></div>' +
-          '<div class="chips" style="margin-top:8px"><a class="pill" href="#/seed/' + h.o + '"><canvas data-mark="o:' + h.o + '"></canvas>' + ORIGIN[h.o][0] + ' · ' + ORIGIN[h.o][1] + '</a>' +
-          h.d.map(function (d) { return '<a class="pill" href="#/bed/' + enc(d) + '"><canvas data-mark="' + d + '"></canvas>' + esc(dom(d).th) + ' · ' + esc(dom(d).en) + '</a>'; }).join('') + '</div>' +
-          (h.ety ? '<p class="muted" style="font-size:15px;margin-top:10px">' + linkifyThai(h.ety.slice(0, 260)) + (h.ety.length > 260 ? '…' : '') + '</p>' : '') +
+      '<section class="word-head card">' +
+        '<div class="wh-pic"><canvas data-head="' + s + '"></canvas></div>' +
+        '<div class="wh-id"><h1 class="th">' + esc(h.th) + '</h1>' +
+          '<div class="say"><span class="rtgs">' + esc(h.r) + '</span><span class="pb">' + esc(h.p) + '</span><span class="ipa">' + esc(h.ipa) + '</span>' + (h.resp ? '<span class="pb">อ่านว่า ' + esc(h.resp) + '</span>' : '') + '</div>' +
+          (h.en ? '<div class="en">' + esc(h.en) + '</div>' : '') +
+          '<div class="wh-row">' + speakBtn(h.th) +
+            '<a class="pill" href="#/seed/' + h.o + '"><canvas data-mark="o:' + h.o + '"></canvas>' + ORIGIN[h.o][0] + ' · ' + ORIGIN[h.o][1] + '</a>' +
+            h.d.slice(0, 2).map(function (d) { return '<a class="pill" href="#/bed/' + enc(d) + '"><canvas data-mark="' + d + '"></canvas>' + esc(dom(d).th) + '</a>'; }).join('') + '</div>' +
         '</div>' +
       '</section>' +
-      (h.rule ? '<div class="card rule" style="margin-top:16px"><h3>กฎของผู้จัด · how the filer divided it' + (h.filed ? ' · ' + h.filed : '') + '</h3><p>' + linkifyThai(h.rule) + '</p></div>' : '') +
-      rootsHtml(h) +
-      section('กิ่ง', 'senses, and the leaves on each', 'v:metaphor') +
-      '<div class="senses">' + h.senses.map(function (sn) {
-        var p = chain(sn), par = sn.ext != null ? bySense[sn.ext] : null;
-        return '<article class="sense" id="s' + sn.n + '" style="--c:' + viaCol(sn.via) + '"><div class="hd"><div class="n">' + sn.n + '</div><div>' +
-          '<div class="en">' + esc(sn.en || '—') + '</div><div class="gth">' + esc(sn.th) + '</div>' +
-          (sn.pos ? '<div class="path">' + esc(sn.posth || '') + ' · ' + esc(sn.pos) + (p.length > 1 ? ' · ' + p.join(' → ') : '') + '</div>' : '') + '</div></div>' +
-          (par ? '<div class="grew">' + VIA[sn.via || ''].th + ' · <a href="#/via/' + (sn.via || '') + '">' + VIA[sn.via || ''].en + '</a> from <a href="#/w/' + s + '/' + par.n + '">sense ' + par.n + '</a>' + (par.en ? ' (' + esc(par.en) + ')' : '') + (sn.vn ? ': ' + esc(sn.vn) : '') + '</div>' : '') +
-          (sn.c.length ? '<div class="chips">' + sn.c.map(function (c) { return chip(c.th, c.r, c.en, '#/k/' + enc(c.th), 'sm'); }).join('') + '</div>' : '<div class="muted" style="margin-top:6px">ยังไม่มีใบ · no compound filed here</div>') +
-          '</article>';
-      }).join('') + '</div>' +
-      (inside.length ? section('อยู่ในต้นอื่น', 'this word inside compounds of other trees', 'x:net') + '<div class="chips">' + inside.slice(0, 60).map(function (i) { return chip(i[0], BY[i[1]] ? BY[i[1]].th + ' ' + i[2] : '', '', '#/k/' + enc(i[0]), 'sm'); }).join('') + '</div>' : '') +
-      (grafts.length ? section('กิ่งทาบ', 'trees joined to this one by a shared word', 'x:net') + '<div class="chips">' + grafts.map(function (e) { var o = e[0] === s ? e[1] : e[0]; return '<a class="chip" href="#/w/' + o + '"><b>' + esc(BY[o].th) + '</b><i>' + esc(BY[o].r) + '</i><span>' + e[3].map(esc).join(' · ') + '</span></a>'; }).join('') + '</div>' : '') +
-      (h.look.length ? section('วัชพืช', 'they look like ' + esc(h.th) + ' but are something else', 'x:mask') + '<div class="grid">' + h.look.map(function (l) { return '<div class="card"><b style="font:500 24px var(--th)">' + esc(l.th) + '</b> <span class="muted">' + esc(l.r) + '</span><div class="muted" style="font-size:14px">' + (USE[l.use] || [l.use, l.use]).join(' · ') + '</div><div style="font-size:15px">' + linkifyThai(l.note) + '</div></div>'; }).join('') + '</div>' : '') +
-      (h.left.length ? section('เมล็ดที่ยังไม่ปลูก', 'left unfiled: no sense of ' + esc(h.th) + ' fits them', 'd:plant') + '<div class="chips">' + h.left.map(function (l) { return '<span class="chip sm"><b>' + esc(l.th) + '</b><i>' + esc(l.r) + '</i><span>' + esc(l.gth.slice(0, 60)) + '</span></span>'; }).join('') + '</div>' : '') +
-      (h.notes.length ? section('สมุดของผู้จัด', 'the compound filer\'s notebook on ' + esc(h.th), 'x:notebook') + '<div class="card notes">' + h.notes.map(function (n) { return '<div class="note"><div class="d">' + esc(n.date) + ' · ' + esc(n.h3 || n.h2) + '</div>' + md(n.text) + '</div>'; }).join('') + '</div>' : '') +
-      (h.mentions.length ? '<p class="muted" style="margin-top:14px">ในสมุดหน้าเดียวกัน · on the same notebook pages: ' + h.mentions.map(hlink).join(' · ') + '</p>' : ''),
-      ''
+      '<section class="stage-wrap">' +
+        (hasRoots ? '<div class="seg" role="tablist" aria-label="มุมมอง · view"><button role="tab" aria-selected="true" data-v="tree">ต้นไม้ · the tree</button><button role="tab" aria-selected="false" data-v="roots">ราก · the roots</button></div>' : '') +
+        '<div class="tree-stage"><canvas class="tree" id="tree" aria-label="ต้นไม้ของ ' + esc(h.th) + ': ' + h.senses.length + ' branches, ' + x.nc + ' leaves"></canvas>' +
+          '<div class="hint" id="hint">แตะกิ่งหรือใบ · tap a numbered branch or a leaf</div></div>' +
+        '<div class="legend">' + Object.keys(viaUsed).map(function (k) { return '<span><i style="background:' + VIA[k].col + '"></i>' + VIA[k].th + ' · ' + VIA_SAY[k] + '</span>'; }).join('') + '</div>' +
+      '</section>' +
+      section('ความหมาย', 'its meanings, one per branch', 'v:metaphor', h.senses.length) +
+      '<ol class="senses">' + h.senses.map(function (sn) {
+        var par = sn.ext != null ? bySense[sn.ext] : null;
+        return '<li><button class="sense-row" data-n="' + sn.n + '" style="--c:' + viaCol(sn.via) + '"><span class="n">' + sn.n + '</span><span class="sx"><b>' + esc(sn.en || sn.th.slice(0, 40)) + '</b>' +
+          '<small>' + (par ? 'grew from ' + par.n + ' · ' + VIA[sn.via || ''].en : esc(sn.posth || sn.pos || '')) + '</small></span><span class="cnt">' + (sn.c.length ? sn.c.length + ' <small>ใบ</small>' : '') + '</span><span class="go">›</span></button></li>';
+      }).join('') + '</ol>' +
+      (hasRoots ? fold('ราก', 'where it comes from and its cousins', null, rootsHtml(h), false, 'd:plant') : '') +
+      (h.rule ? fold('วิธีแบ่ง', 'how the filer divided its meanings', null, '<p class="rule">' + rich(h.rule) + '</p>' + (h.filed ? '<p class="muted">' + h.filed + '</p>' : ''), false, 'x:notebook') : '') +
+      (h.look.length ? fold('วัชพืช', 'look like ' + esc(h.th) + ' and are not', h.look.length, '<div class="grid">' + h.look.map(function (l) { return '<a class="card weed" href="#/k/' + enc(l.th) + '"><b>' + esc(l.th) + '</b> <span class="muted">' + esc(l.r) + '</span><div class="muted">' + (USE[l.use] || [l.use, l.use]).join(' · ') + '</div><div>' + esc(l.note) + '</div></a>'; }).join('') + '</div>', false, 'x:mask') : '') +
+      (grafts.length || inside.length ? fold('ต้นที่เชื่อมกัน', 'trees that share words with this one', grafts.length + inside.length,
+        (grafts.length ? '<div class="chips">' + grafts.map(function (e) { var o = e[0] === s ? e[1] : e[0]; return '<a class="chip" href="#/w/' + o + '"><b>' + esc(BY[o].th) + '</b><i>' + esc(BY[o].en) + '</i><span>' + e[3].map(esc).join(' · ') + '</span></a>'; }).join('') + '</div>' : '') +
+        (inside.length ? '<h3>' + esc(h.th) + ' inside other trees\' words</h3><div class="chips">' + inside.slice(0, 60).map(function (i) { return chip(i[0], BY[i[1]] ? 'on ' + BY[i[1]].th : '', '', '#/k/' + enc(i[0]), 'sm'); }).join('') + '</div>' : ''), false, 'x:net') : '') +
+      (h.notes.length ? fold('สมุด', 'the filer\'s notes on ' + esc(h.th), h.notes.length, '<div class="notes">' + h.notes.map(function (n) { return '<div class="note"><div class="d">' + esc(n.date) + (n.h3 ? ' · ' + esc(n.h3) : '') + '</div>' + md(n.text) + '</div>'; }).join('') + '</div>', false, 'x:notebook') : '') +
+      (h.left.length ? fold('เมล็ดที่ยังไม่ปลูก', 'words no meaning of ' + esc(h.th) + ' fits yet', h.left.length, '<div class="chips">' + h.left.map(function (l) { return '<span class="chip sm"><b>' + esc(l.th) + '</b><i>' + esc(l.r) + '</i><span>' + esc(l.gth.slice(0, 60)) + '</span></span>'; }).join('') + '</div>', false, 'd:plant') : '')
     );
-    var cv = document.getElementById('tree'), peek = document.getElementById('peek'), lit = hiN != null ? +hiN : null;
-    pic(cv, function (c, W, H, t) { return MDTREE.draw(c, W, H, t, h, { sky: true, hi: lit, roots: rootsHave(h) }); });
-    function light(n, scroll) {
-      lit = n; main.querySelectorAll('.sense').forEach(function (a) { a.classList.toggle('lit', a.id === 's' + n); });
-      if (scroll) { var a = document.getElementById('s' + n); if (a) a.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-    }
-    if (lit != null) setTimeout(function () { light(lit, true); }, 60);
+    setTab('');
+    restoreScroll();
+    var cv = document.getElementById('tree'), view = 'tree', lit = hiN != null ? +hiN : null, leaf = leafTh || null;
+    pic(cv, function (c, W, H, t) {
+      if (view === 'roots') {   /* the same drawing, lifted so the ground sits near the top and the roots fill the frame */
+        var VH = H * 1.7, lift = VH * (W < 520 ? 0.52 : 0.58) - H * 0.22;
+        c.save(); c.translate(0, -lift);
+        var hs = MDTREE.draw(c, W, VH, t, h, { sky: true, hi: lit, leaf: leaf, roots: true });
+        c.restore();
+        return hs.map(function (q) { return { k: q.k, n: q.n, th: q.th, say: q.say, x: q.x, y: q.y - lift, r: q.r }; });
+      }
+      return MDTREE.draw(c, W, H, t, h, { sky: true, hi: lit, leaf: leaf });
+    });
+    main.querySelectorAll('.seg button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        view = b.getAttribute('data-v');
+        main.querySelectorAll('.seg button').forEach(function (x) { x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+        document.getElementById('hint').textContent = view === 'roots' ? 'แตะป้ายเพื่ออ่าน · tap a label to read it' : 'แตะกิ่งหรือใบ · tap a numbered branch or a leaf';
+        cv._dirty = 1;
+      });
+    });
+    function openSense(n, th, fromList) {
+      if (fromList) { var sw = main.querySelector('.stage-wrap'); if (sw) sw.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' }); }
+      lit = n; leaf = th || null; cv._dirty = 1; senseSheet(h, n, th, function (n2, th2) { lit = n2; leaf = th2; cv._dirty = 1; }); }
+    main.querySelectorAll('.sense-row').forEach(function (b) { b.addEventListener('click', function () { openSense(+b.getAttribute('data-n'), null, true); }); });
     cv.addEventListener('click', function (e) {
-      var hit = hitAt(cv, e); if (!hit) { peek.classList.remove('on'); return; }
-      if (hit.k === 'sense') { light(hit.n, true); peek.classList.remove('on'); return; }
+      var hit = hitAt(cv, e, 1.6);
+      if (!hit) return;
+      if (hit.k === 'sense') return openSense(hit.n);
+      if (hit.k === 'leaf') return openSense(hit.n, hit.th);
       if (hit.k === 'root' || hit.k === 'word') {
         var hr = hit.th ? wordHref(hit.th) : null;
-        peek.innerHTML = (hr ? '<a href="' + hr + '" style="text-decoration:none">' : '<div>') + '<div style="font-size:18px">' + esc(hit.say) + '</div>' + (hr ? '<div class="muted" style="font-size:13px">แตะเพื่อเปิด · tap to open</div></a>' : '</div>');
-        peek.classList.add('on'); return;
+        openSheet('<div class="sh-body"><p class="say-big">' + esc(hit.say) + '</p>' + (hr ? '<a class="btn" href="' + hr + '">เปิด ' + esc(hit.th) + ' · open ›</a>' : '') + '<p class="muted">The same story as text is under ราก · roots below the meanings.</p></div>', 'ราก · root');
       }
-      var c = null; h.senses.forEach(function (sn) { sn.c.forEach(function (x) { if (x.th === hit.th) c = x; }); });
-      light(hit.n, false);
-      peek.innerHTML = '<a href="#/k/' + enc(hit.th) + '" style="text-decoration:none"><b>' + esc(hit.th) + '</b> <span class="muted">' + esc(c ? c.r : '') + '</span><div>' + esc(c ? c.en || c.gth.slice(0, 80) : '') + '</div><div class="muted" style="font-size:13px">แตะเพื่อเปิด · tap to open</div></a>';
-      peek.classList.add('on');
     });
+    if (lit != null) openSense(lit, leaf);
+    if (!store('guided')) setTimeout(function () { if (location.hash.indexOf('#/w/' + s) === 0) guide(); }, 900);
   }).catch(pageMissing);
 }
+
+/* the panel a branch opens: its meaning, how it grew, its leaves; arrows walk the branches */
+function senseSheet(h, n, th, onPick) {
+  var i = h.senses.findIndex(function (x) { return x.n === n; }), sn = h.senses[i]; if (!sn) return;
+  var by = {}; h.senses.forEach(function (x) { by[x.n] = x; });
+  var par = sn.ext != null ? by[sn.ext] : null, kids = h.senses.filter(function (x) { return x.ext === sn.n && x !== sn; });
+  var c = th ? sn.c.filter(function (x) { return x.th === th; })[0] : null;
+  var html =
+    '<div class="sh-top" style="--c:' + viaCol(sn.via) + '"><span class="n">' + sn.n + '</span><div><b>' + esc(sn.en || '—') + '</b><small>' + esc(h.th) + ' · ' + (sn.posth ? esc(sn.posth) + ' · ' : '') + esc(sn.pos) + '</small></div></div>' +
+    '<div class="sh-body">' +
+      '<p class="gth">' + esc(sn.th) + '</p>' +
+      (par ? '<p class="grew"><i style="background:' + viaCol(sn.via) + '"></i>Grew from <button class="lnk" data-n="' + par.n + '">' + par.n + ' ' + esc(par.en || '') + '</button> by ' + VIA[sn.via || ''].en + ' (' + VIA[sn.via || ''].th + ')' + (sn.vn ? ': ' + esc(sn.vn) : '') + '</p>' : '<p class="grew"><i style="background:' + viaCol('') + '"></i>A first meaning: it grows straight from the trunk.</p>') +
+      (kids.length ? '<p class="grew">Branches growing from it: ' + kids.map(function (k) { return '<button class="lnk" data-n="' + k.n + '">' + k.n + ' ' + esc(k.en || '') + '</button>'; }).join(', ') + '</p>' : '') +
+      (c ? '<div class="picked"><div class="pk-word"><b>' + esc(c.th) + '</b>' + speakBtn(c.th, true) + '</div><div class="muted">' + esc(c.r) + '</div>' + (c.en ? '<div class="pk-en">' + esc(c.en) + '</div>' : '') +
+        (c.lit ? '<div class="muted">ตามตัว · literally ' + esc(c.lit) + '</div>' : '') + '<a class="btn" href="#/k/' + enc(c.th) + '">เปิดคำนี้ · open this word ›</a></div>' : '') +
+      (sn.c.length ? '<h3>ใบบนกิ่งนี้ · the ' + sn.c.length + ' compound words on this branch</h3><div class="chips leafs">' + sn.c.map(function (x) {
+        return '<button class="chip sm' + (c && x.th === c.th ? ' on' : '') + '" data-th="' + esc(x.th) + '"><b>' + esc(x.th) + '</b><i>' + esc(x.r) + '</i>' + (x.en ? '<span>' + esc(x.en) + '</span>' : '') + '</button>';
+      }).join('') + '</div>' : '<p class="muted">ยังไม่มีใบ · no compound word is filed on this branch yet.</p>') +
+    '</div>' +
+    '<div class="sh-nav">' + (i > 0 ? '<button class="btn ghost" data-n="' + h.senses[i - 1].n + '">‹ ' + h.senses[i - 1].n + '</button>' : '<span></span>') +
+      '<span class="muted">กิ่ง ' + (i + 1) + ' / ' + h.senses.length + '</span>' +
+      (i < h.senses.length - 1 ? '<button class="btn ghost" data-n="' + h.senses[i + 1].n + '">' + h.senses[i + 1].n + ' ›</button>' : '<span></span>') + '</div>';
+  openSheet(html, 'กิ่ง ' + sn.n + ' · branch ' + sn.n);
+  sheet.querySelectorAll('[data-n]').forEach(function (b) { b.addEventListener('click', function () { var m = +b.getAttribute('data-n'); onPick(m, null); senseSheet(h, m, null, onPick); }); });
+  sheet.querySelectorAll('.leafs [data-th]').forEach(function (b) { b.addEventListener('click', function () { var t2 = b.getAttribute('data-th'); onPick(sn.n, t2); senseSheet(h, sn.n, t2, onPick); }); });
+}
+function openSheet(html, label) {
+  sheet.innerHTML = '<div class="sh-grab" aria-hidden="true"></div><button class="sh-close" aria-label="ปิด · close">×</button>' + html;
+  sheet.setAttribute('aria-label', label || ''); sheet.hidden = false; document.body.classList.add('has-sheet');
+  wire(sheet); sheet.scrollTop = 0;
+  sheet.querySelector('.sh-close').addEventListener('click', closeSheet);
+}
+function closeSheet() { sheet.hidden = true; sheet.innerHTML = ''; document.body.classList.remove('has-sheet'); }
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if (!guideEl.hidden) closeGuide(); else closeSheet(); } });
+/* a swipe down on the panel's top closes it */
+(function () { var y0 = null; sheet.addEventListener('touchstart', function (e) { y0 = sheet.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+  sheet.addEventListener('touchend', function (e) { if (y0 != null && e.changedTouches[0].clientY - y0 > 90) closeSheet(); y0 = null; }, { passive: true }); })();
 
 function rootsHave(h) { var R = h.roots || {}; return !!((R.from || []).length || (R.cog || []).length || (R.tr || []).length); }
 function rootsHtml(h) {
   if (!rootsHave(h)) return '';
   var R = h.roots;
   function row(g) { return '<span class="f">' + esc(g[2]) + '</span><span>' + (g[3] ? esc(g[3]) + ' · ' : '') + esc(g[1] || g[0]) + ' <span class="muted">' + esc(g[0]) + '</span>' + (g[4] ? ' “' + esc(g[4]) + '”' : '') + '</span>'; }
-  return section('ราก', 'roots: where ' + esc(h.th) + ' comes from, its cousins, and its ThaiRoots family', 'd:plant') +
-    '<div class="roots-list">' +
-      ((R.from || []).length ? '<div class="card"><h3>รากแก้ว · taproot, newest to oldest</h3><div class="cog">' + R.from.map(function (g) { return row(g.slice(0, 5)); }).join('') + '</div>' + ((R.cf || []).length ? '<h3 style="margin-top:10px">เทียบ · compare</h3><div class="cog">' + R.cf.map(row).join('') + '</div>' : '') + '</div>' : '') +
-      ((R.cog || []).length ? '<div class="card"><h3>รากแขนง · cognates in sister languages</h3><div class="cog">' + R.cog.map(row).join('') + '</div></div>' : '') +
+  return '<div class="roots-list">' +
+      ((R.from || []).length ? '<div class="card"><h3>รากแก้ว · comes from, newest to oldest</h3><div class="cog">' + R.from.map(function (g) { return row(g.slice(0, 5)); }).join('') + '</div>' + ((R.cf || []).length ? '<h3>เทียบ · compare</h3><div class="cog">' + R.cf.map(row).join('') + '</div>' : '') + '</div>' : '') +
+      ((R.cog || []).length ? '<div class="card"><h3>รากแขนง · the same word in sister languages</h3><div class="cog">' + R.cog.map(row).join('') + '</div></div>' : '') +
       (R.tr || []).map(function (f) {
-        return '<div class="card tr-knot"><h3>ThaiRoots ' + esc(f.id) + (f.rel === 'root' ? ' · this word is the root' : ' · grown from this root') + '</h3><div style="font:600 30px var(--th);color:var(--red)">' + esc(f.root) + '</div><div>' + esc(f.gloss) + (f.gth ? ' · ' + esc(f.gth) : '') + (f.pali ? ' · Pali ' + esc(f.pali) : '') + '</div>' +
+        return '<div class="card tr-knot"><h3>ThaiRoots ' + esc(f.id) + (f.rel === 'root' ? ' · this word is the root' : ' · grown from this root') + '</h3><div class="tr-root">' + esc(f.root) + '</div><div>' + esc(f.gloss) + (f.gth ? ' · ' + esc(f.gth) : '') + (f.pali ? ' · Pali ' + esc(f.pali) : '') + '</div>' +
           (f.note ? '<p>' + linkifyThai(f.note) + '</p>' : '') + (f.noteT ? '<p class="muted">' + linkifyThai(f.noteT) + '</p>' : '') +
           '<div class="chips">' + f.der.slice(0, 30).map(function (d) { var hr = wordHref(d[0]); return hr ? chip(d[0], d[1], d[2], hr, 'sm') : '<span class="chip sm"><b>' + esc(d[0]) + '</b><i>' + esc(d[1]) + '</i><span>' + esc(d[2]) + '</span></span>'; }).join('') + '</div></div>';
       }).join('') +
     '</div>';
 }
+
+/* ---------------------------------------------------------------- a compound: what it means, how it is built, where it hangs */
 function pageWord(th) {
   var w = IDX.words[th]; if (!w) return pageMissing();
   if (IDX.byTh[th]) { location.replace('#/w/' + IDX.byTh[th]); return; }
   var at = (w.a || []).filter(function (a) { return a[1] > 0; }), weed = (w.a || []).filter(function (a) { return a[1] === 0; });
   var first = at[0] || weed[0] || null;
+  setTab('');
   if (!first) {   /* a part only: a word that appears inside compounds but is not filed as one */
     step('#/k/' + enc(th), th); here = { kind: 'word', w: th, parts: [] };
-    put('<div class="card"><p class="th" style="font:500 60px var(--th);color:var(--red);margin:0">' + esc(th) + '</p>' + speakBtn(th) + '</div>' +
-      section('อยู่ในคำเหล่านี้', 'built into these compounds', 'x:net') + '<div class="chips">' + (w.i || []).map(function (i) { return chip(i[0], BY[i[1]].th + ' ' + i[2], '', '#/k/' + enc(i[0]), 'sm'); }).join('') + '</div>', '');
+    put('<section class="word-head card"><div class="wh-id"><h1 class="th">' + esc(th) + '</h1>' + speakBtn(th) + '<p class="muted">A part of other words: it has no tree of its own here.</p></div></section>' +
+      section('อยู่ในคำเหล่านี้', 'built into these compounds', 'x:net', (w.i || []).length) + '<div class="chips">' + (w.i || []).map(function (i) { return chip(i[0], 'on ' + BY[i[1]].th, '', '#/k/' + enc(i[0]), 'sm'); }).join('') + '</div>');
     return;
   }
   head(first[0]).then(function (h) {
     var sn = null, c = null, look = null;
     h.senses.forEach(function (s) { s.c.forEach(function (x) { if (x.th === th && !c) { c = x; sn = s; } }); });
     if (!c) h.look.forEach(function (l) { if (l.th === th) look = l; });
-    step('#/k/' + enc(th), th);
     here = { kind: 'word', w: th, parts: c ? c.parts : [] };
     if (look) {
-      put('<div class="k-top"><div class="k-pic"><canvas data-mark="x:mask" style="height:260px"></canvas></div><div class="card"><p style="font:500 64px var(--th);color:var(--red);margin:0">' + esc(th) + '</p><div class="rtgs" style="font-size:24px;font-weight:600">' + esc(look.r) + '</div>' + speakBtn(th) +
-        '<p><b>' + (USE[look.use] || [look.use, look.use]).join(' · ') + '</b> — it looks like a compound of ' + hlink(h.s) + ', and it is not.</p><p>' + linkifyThai(look.note) + '</p>' + (look.gth ? '<p class="muted">' + esc(look.gth) + '</p>' : '') + '</div></div>', 'weeds');
+      step('#/k/' + enc(th), th, (USE[look.use] || ['', ''])[1]);
+      put('<section class="word-head card"><div class="wh-pic"><canvas data-mark="x:mask"></canvas></div><div class="wh-id"><h1 class="th">' + esc(th) + '</h1><div class="say"><span class="rtgs">' + esc(look.r) + '</span></div>' + speakBtn(th) + '</div></section>' +
+        '<div class="card verdict"><b>วัชพืช · a lookalike</b><p>' + esc(th) + ' looks like a compound of ' + hlink(h.s) + ' and is not. ' + (USE[look.use] ? USE[look.use].join(' · ') + '.' : '') + '</p><p>' + linkifyThai(look.note) + '</p>' + (look.gth ? '<p class="muted">' + esc(look.gth) + '</p>' : '') +
+        '<a class="btn" href="#/w/' + h.s + '">ดูต้น ' + esc(h.th) + ' · see the ' + esc(h.th) + ' tree ›</a></div>');
+      restoreScroll();
       return;
     }
+    step('#/k/' + enc(th), th, c.en);
     var others = (c.parts || []).filter(function (p) { return p !== h.th; });
     var kin = [];
     others.forEach(function (p) { ((IDX.words[p] || {}).i || []).forEach(function (i) { if (i[0] !== th) kin.push(i); }); });
     var sibs = sn.c.filter(function (x) { return x.th !== th; });
+    var also = (w.a || []).filter(function (a) { return a[0] !== h.s && a[1] > 0; });
     put(
-      '<div class="k-top">' +
-        '<div class="k-pic"><canvas id="ktree"></canvas></div>' +
-        '<div class="card"><p style="font:500 64px/1.1 var(--th);color:var(--red);margin:0;word-break:break-word">' + esc(th) + '</p>' +
-          '<div class="say" style="display:flex;gap:12px;flex-wrap:wrap;align-items:baseline"><span style="font:600 24px var(--body)">' + esc(c.r) + '</span><span class="muted">' + esc(c.ipa) + '</span></div>' +
-          (c.en ? '<div style="font-size:22px;margin:6px 0">' + esc(c.en) + '</div>' : '') + speakBtn(th) +
-          (c.parts && c.parts.length ? '<div class="equation">' + c.parts.map(function (p, i) { return (i ? '<span class="op">+</span>' : '') + (wordHref(p) ? chip(p, BY[IDX.byTh[p]] ? BY[IDX.byTh[p]].r : '', '', wordHref(p)) : '<span class="chip"><b>' + esc(p) + '</b></span>'); }).join('') + '<span class="op">=</span><span class="chip"><b>' + esc(th) + '</b></span></div>' : '') +
-          (c.lit ? '<p>ตามตัว · literally: <b>' + esc(c.lit) + '</b></p>' : '') +
-          '<p class="muted">' + esc(c.gth) + '</p>' +
-          '<div class="chips">' +
-            '<a class="pill" href="#/w/' + h.s + '/' + sn.n + '" style="padding-left:12px"><b style="color:' + viaCol(sn.via) + '">●</b> ' + esc(h.th) + ' กิ่ง ' + sn.n + (sn.en ? ' · ' + esc(sn.en) : '') + '</a>' +
-            (c.pat ? '<a class="pill" href="#/shape/' + enc(c.pat) + '" style="padding-left:12px">' + esc(c.pat) + '</a>' : '') +
-            (c.fr && FRAME[c.fr] ? '<a class="pill" href="#/shape/' + enc(c.pat || 'N+N') + '" style="padding-left:12px">' + FRAME[c.fr].join(' · ') + '</a>' : '') +
-            (c.x || []).map(function (x) { return IDX.byTh[x] ? '<a class="pill" href="#/w/' + IDX.byTh[x] + '" style="padding-left:12px">also on ' + esc(x) + '</a>' : ''; }).join('') +
-          '</div>' +
+      '<section class="word-head card">' +
+        '<div class="wh-id"><h1 class="th">' + esc(th) + '</h1>' +
+          '<div class="say"><span class="rtgs">' + esc(c.r) + '</span><span class="ipa">' + esc(c.ipa) + '</span></div>' +
+          (c.en ? '<div class="en">' + esc(c.en) + '</div>' : '') +
+          '<div class="wh-row">' + speakBtn(th) + '</div>' +
         '</div>' +
-      '</div>' +
-      (sibs.length ? section('ใบบนกิ่งเดียวกัน', 'on the same branch: ' + esc(h.th) + ' sense ' + sn.n, 'd:plant') + '<div class="chips">' + sibs.map(function (x) { return chip(x.th, x.r, x.en, '#/k/' + enc(x.th), 'sm'); }).join('') + '</div>' : '') +
-      (kin.length ? section('ญาติทางคำ', 'other words built from ' + others.map(esc).join(' + '), 'd:kinship') + '<div class="chips">' + kin.slice(0, 60).map(function (i) { return chip(i[0], BY[i[1]].th + ' ' + i[2], '', '#/k/' + enc(i[0]), 'sm'); }).join('') + '</div>' : '') +
-      ((w.a || []).length > 1 ? '<p class="muted" style="margin-top:14px">also filed on: ' + w.a.filter(function (a) { return a[0] !== h.s && a[1] >= 0; }).map(function (a) { return hlink(a[0]); }).join(' · ') + '</p>' : ''),
-      ''
+      '</section>' +
+      (c.parts && c.parts.length ? '<section class="card build"><h3>ประกอบจาก · built from</h3><div class="equation">' + c.parts.map(function (p, i) {
+        var hr = wordHref(p), hp = BY[IDX.byTh[p]];
+        return (i ? '<span class="op">+</span>' : '') + (hr ? chip(p, hp ? hp.r : '', hp ? hp.en.split(',')[0] : '', hr) : '<span class="chip"><b>' + esc(p) + '</b></span>');
+      }).join('') + '<span class="op">=</span><span class="chip whole"><b>' + esc(th) + '</b>' + (c.en ? '<span>' + esc(c.en) + '</span>' : '') + '</span></div>' +
+        (c.lit ? '<p>ตามตัว · literally <b>' + esc(c.lit) + '</b></p>' : '') + '</section>' : '') +
+      '<section class="card where"><h3>เติบโตที่ · where it grows</h3>' +
+        '<p class="crumbs"><a href="#/w/' + h.s + '">' + esc(h.th) + ' <small>' + esc(h.en.split(',')[0]) + '</small></a><span>›</span><a href="#/w/' + h.s + '/' + sn.n + '/' + enc(th) + '" style="--c:' + viaCol(sn.via) + '"><i></i>branch ' + sn.n + ' <small>' + esc(sn.en || '') + '</small></a><span>›</span><b>' + esc(th) + '</b></p>' +
+        '<a class="k-pic" href="#/w/' + h.s + '/' + sn.n + '/' + enc(th) + '" aria-label="open the ' + esc(h.th) + ' tree at this leaf"><canvas id="ktree"></canvas><span class="k-cap">ใบสีแดงคือ ' + esc(th) + ' · the red leaf is this word. Tap to open the tree.</span></a>' +
+        '<p class="gth">' + esc(c.gth) + '</p>' +
+        '<div class="chips">' + (c.pat ? '<a class="pill" href="#/shape/' + enc(c.pat) + '">' + esc(c.pat) + ' · ' + esc(c.pat.split('+').map(function (x) { return POS[x] || x; }).join(' + ')) + '</a>' : '') +
+          (c.fr && FRAME[c.fr] ? '<span class="pill">' + FRAME[c.fr].join(' · ') + '</span>' : '') +
+          also.map(function (a) { return '<a class="pill" href="#/w/' + a[0] + '">also on ' + esc(BY[a[0]].th) + '</a>'; }).join('') + '</div>' +
+      '</section>' +
+      (sibs.length ? fold('ใบข้างเคียง', 'other words on the same branch', sibs.length, '<div class="chips">' + sibs.map(function (x) { return chip(x.th, x.r, x.en, '#/k/' + enc(x.th), 'sm'); }).join('') + '</div>', true, 'd:plant') : '') +
+      (kin.length ? fold('ญาติทางคำ', 'other words built from ' + others.map(esc).join(' + '), kin.length, '<div class="chips">' + kin.slice(0, 80).map(function (i) { return chip(i[0], 'on ' + BY[i[1]].th, '', '#/k/' + enc(i[0]), 'sm'); }).join('') + '</div>', true, 'd:kinship') : '')
     );
+    restoreScroll();
     var cv = document.getElementById('ktree');
-    pic(cv, function (cc, W, H, t) { return MDTREE.draw(cc, W, H, t, h, { sky: true, hi: sn.n, sign: true }); });
-    cv.addEventListener('click', function () { location.hash = '#/w/' + h.s + '/' + sn.n; });
+    pic(cv, function (cc, W, H, t) { return MDTREE.draw(cc, W, H, t, h, { sky: true, hi: sn.n, leaf: th, sign: true }); });
   }).catch(pageMissing);
 }
 
-/* the net: every tree a knot, every shared compound a thread */
+/* ---------------------------------------------------------------- the net: every tree a knot, every shared compound a thread */
 var NET = null;
 function netLayout() {
   if (NET) return NET;
-  var nodes = IDX.heads.map(function (h, i) { var a = i * 2.39996, r = 20 * Math.sqrt(i); return { s: h.s, h: h, x: Math.cos(a) * r, y: Math.sin(a) * r, vx: 0, vy: 0, deg: 0 }; });
+  var nodes = IDX.heads.map(function (h, i) { var a = i * 2.39996, r = 20 * Math.sqrt(i); return { s: h.s, h: h, x: Math.cos(a) * r, y: Math.sin(a) * r, vx: 0, vy: 0 }; });
   var at = {}; nodes.forEach(function (n, i) { at[n.s] = i; });
-  var E = IDX.edges.map(function (e) { nodes[at[e[0]]].deg++; nodes[at[e[1]]].deg++; return [at[e[0]], at[e[1]], e[2]]; });
+  var E = IDX.edges.map(function (e) { return [at[e[0]], at[e[1]], e[2], e[3]]; });
   for (var it = 0; it < 320; it++) {
     var cool = 1 - it / 320;
     for (var i = 0; i < nodes.length; i++) for (var j = i + 1; j < nodes.length; j++) {
@@ -366,38 +463,50 @@ function netLayout() {
 }
 var DCOL = ['#9a2a1f', '#24507a', '#2f7a46', '#c8642a', '#7a3a6e', '#b08a1a', '#1f6a6a', '#b04870', '#5a6a2a', '#6b4426'];
 function pageNet() {
-  put('<div class="net-tools" id="nt"></div><div class="net-stage" id="ns"><canvas id="net"></canvas></div><p class="muted">ปมหนึ่งคือต้นไม้หนึ่งต้น เส้นคือคำที่สองต้นใช้ร่วมกัน · a knot is a tree; a thread is a compound two trees share. Drag to move, pinch or wheel to zoom, tap a knot.</p>', 'net');
+  put(section('ตาข่าย', 'trees joined by the words they share', 'x:net') +
+    '<div class="net-tools" id="nt"></div><div class="net-stage" id="ns"><canvas id="net" aria-label="the net of trees"></canvas>' +
+    '<div class="net-zoom"><button data-z="1.25" aria-label="ซูมเข้า · zoom in">+</button><button data-z="0.8" aria-label="ซูมออก · zoom out">−</button><button data-z="0" aria-label="ดูทั้งหมด · fit">⤢</button></div>' +
+    '<div class="net-card" id="nc">แตะปมเพื่อดูว่าเชื่อมกับต้นไหน · tap a knot to see which trees it shares words with. Drag to move, pinch to zoom.</div></div>');
+  setTab('net');
   var N = netLayout(), cv = document.getElementById('net'), view = { x: 0, y: 0, k: 1.3 }, sel = null, domList = Object.keys(IDX.domains), dsel = null;
-  var tools = document.getElementById('nt');
+  var card = document.getElementById('nc'), tools = document.getElementById('nt');
   tools.innerHTML = '<button data-d="" class="on">ทั้งหมด · all</button>' + domList.filter(function (d) { return IDX.heads.some(function (h) { return h.d[0] === d; }); }).map(function (d) { return '<button data-d="' + d + '">' + esc(dom(d).th) + '</button>'; }).join('');
   tools.addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; dsel = b.getAttribute('data-d') || null; tools.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+  document.querySelectorAll('.net-zoom button').forEach(function (b) { b.addEventListener('click', function () { var z = +b.getAttribute('data-z'); if (!z) { view = { x: 0, y: 0, k: 1 }; } else view.k = Math.max(0.3, Math.min(5, view.k * z)); }); });
   function col(h) { var i = domList.indexOf(h.d[0]); return DCOL[(i < 0 ? 9 : i) % DCOL.length]; }
+  function choose(i) {
+    sel = i;
+    if (i == null) { card.innerHTML = 'แตะปมเพื่อดูว่าเชื่อมกับต้นไหน · tap a knot to see which trees it shares words with.'; return; }
+    var n = N.nodes[i], links = N.E.filter(function (e) { return e[0] === i || e[1] === i; });
+    card.innerHTML = '<div class="nc-top"><b>' + esc(n.h.th) + '</b> <span>' + esc(n.h.r) + ' · ' + esc(n.h.en) + '</span><a class="btn" href="#/w/' + n.s + '">เปิดต้นนี้ · open ›</a></div>' +
+      (links.length ? '<div class="chips">' + links.slice(0, 14).map(function (e) { var o = N.nodes[e[0] === i ? e[1] : e[0]]; return '<button class="chip sm" data-i="' + (e[0] === i ? e[1] : e[0]) + '"><b>' + esc(o.h.th) + '</b><span>' + e[3].slice(0, 3).map(esc).join(' · ') + '</span></button>'; }).join('') + '</div>' : '<p class="muted">No shared words with other trees.</p>');
+    card.querySelectorAll('[data-i]').forEach(function (b) { b.addEventListener('click', function () { choose(+b.getAttribute('data-i')); }); });
+  }
   pic(cv, function (c, W, H, t) {
     var k = view.k * Math.min(W, H) / (N.R * 2.2), ox = W / 2 + view.x, oy = H / 2 + view.y, hits = [];
-    c.fillStyle = getComputedStyle(document.body).getPropertyValue('--card') || '#fffaf0'; c.fillRect(0, 0, W, H);
+    var cs = getComputedStyle(document.body);
+    c.fillStyle = cs.getPropertyValue('--card') || '#fffaf0'; c.fillRect(0, 0, W, H);
     N.E.forEach(function (e) {
       var a = N.nodes[e[0]], b = N.nodes[e[1]], on = sel != null && (e[0] === sel || e[1] === sel);
-      var dim = dsel && a.h.d[0] !== dsel && b.h.d[0] !== dsel;
-      c.strokeStyle = on ? '#d99a22' : dim ? 'rgba(120,100,80,.08)' : 'rgba(120,90,60,.28)'; c.lineWidth = on ? 3 : Math.min(3, e[2]);
+      var dim = (dsel && a.h.d[0] !== dsel && b.h.d[0] !== dsel) || (sel != null && !on);
+      c.strokeStyle = on ? '#d99a22' : dim ? 'rgba(120,100,80,.07)' : 'rgba(120,90,60,.28)'; c.lineWidth = on ? 3 : Math.min(3, e[2]);
       c.beginPath(); c.moveTo(ox + a.x * k, oy + a.y * k);
-      var mx = (a.x + b.x) / 2 * k + ox + Math.sin(t / 1500 + e[0]) * 4, my = (a.y + b.y) / 2 * k + oy;
-      c.quadraticCurveTo(mx, my, ox + b.x * k, oy + b.y * k); c.stroke();
+      c.quadraticCurveTo((a.x + b.x) / 2 * k + ox + Math.sin(t / 1500 + e[0]) * 4, (a.y + b.y) / 2 * k + oy, ox + b.x * k, oy + b.y * k); c.stroke();
     });
+    var nb = {}; if (sel != null) N.E.forEach(function (e) { if (e[0] === sel) nb[e[1]] = 1; if (e[1] === sel) nb[e[0]] = 1; });
     N.nodes.forEach(function (n, i) {
-      var x = ox + n.x * k, y = oy + n.y * k, r = (4 + Math.sqrt(n.h.nc) * 1.3) * Math.max(0.7, Math.min(1.8, view.k)), dim = dsel && n.h.d[0] !== dsel;
+      var x = ox + n.x * k, y = oy + n.y * k, r = (4 + Math.sqrt(n.h.nc) * 1.3) * Math.max(0.7, Math.min(1.8, view.k));
+      var dim = (dsel && n.h.d[0] !== dsel) || (sel != null && i !== sel && !nb[i]);
       if (x < -40 || y < -40 || x > W + 40 || y > H + 40) return;
-      var glint = 0.5 + 0.5 * Math.sin(t / 700 + i);
-      c.globalAlpha = dim ? 0.18 : 1;
+      c.globalAlpha = dim ? 0.2 : 1;
       MDSKY.paper(c, function (q) { q.beginPath(); q.arc(x, y, r, 0, 6.283); }, i === sel ? '#d99a22' : col(n.h), 0.6);
-      c.fillStyle = 'rgba(255,250,230,' + (0.25 + glint * 0.35) + ')'; c.beginPath(); c.arc(x - r * 0.3, y - r * 0.3, r * 0.28, 0, 6.283); c.fill();
-      if (view.k > 1.6 || n.h.nc > 45 || i === sel || (sel != null && N.E.some(function (e) { return (e[0] === sel && e[1] === i) || (e[1] === sel && e[0] === i); }))) { c.fillStyle = getComputedStyle(document.body).getPropertyValue('--ink') || '#23180f'; c.font = '500 ' + Math.round(13 + Math.min(6, view.k * 3)) + 'px Mitr, sans-serif'; c.textAlign = 'center'; c.fillText(n.h.th, x, y + r + 15); }
+      if (view.k > 1.6 || n.h.nc > 45 || i === sel || nb[i]) { c.fillStyle = cs.getPropertyValue('--ink') || '#23180f'; c.font = '500 ' + Math.round(13 + Math.min(6, view.k * 3)) + 'px Mitr, sans-serif'; c.textAlign = 'center'; c.fillText(n.h.th, x, y + r + 15); }
       c.globalAlpha = 1;
-      hits.push({ x: x, y: y, r: Math.max(14, r + 4), i: i });
+      hits.push({ x: x, y: y, r: Math.max(16, r + 6), i: i });
     });
     return hits;
   });
-  /* hands: drag, wheel, pinch, tap */
-  var pts = {}, last = null, moved = 0;
+  var pts = {}, moved = 0;
   cv.addEventListener('pointerdown', function (e) { cv.setPointerCapture(e.pointerId); pts[e.pointerId] = [e.clientX, e.clientY]; moved = 0; });
   cv.addEventListener('pointermove', function (e) {
     if (!pts[e.pointerId]) return; var ids = Object.keys(pts), p = pts[e.pointerId];
@@ -405,148 +514,224 @@ function pageNet() {
     else if (ids.length === 2) { var o = pts[ids[0] == e.pointerId ? ids[1] : ids[0]], d0 = Math.hypot(p[0] - o[0], p[1] - o[1]), d1 = Math.hypot(e.clientX - o[0], e.clientY - o[1]); if (d0 > 0) view.k = Math.max(0.3, Math.min(5, view.k * d1 / d0)); moved += 20; }
     pts[e.pointerId] = [e.clientX, e.clientY];
   });
-  function up(e) {
-    if (pts[e.pointerId] && moved < 6) {
-      var h = hitAt(cv, e);
-      if (h) { if (sel === h.i) location.hash = '#/w/' + N.nodes[h.i].s; else sel = h.i; } else sel = null;
-    }
-    delete pts[e.pointerId];
-  }
-  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  function up(e) { if (pts[e.pointerId] && moved < 6) { var h = hitAt(cv, e); choose(h ? h.i : null); } delete pts[e.pointerId]; }
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', function (e) { delete pts[e.pointerId]; });
   cv.addEventListener('wheel', function (e) { e.preventDefault(); view.k = Math.max(0.3, Math.min(5, view.k * (e.deltaY < 0 ? 1.12 : 0.89))); }, { passive: false });
 }
 
+/* ---------------------------------------------------------------- browsing pages */
+function treeGrid(hs, sub) {
+  return '<div class="grid">' + hs.map(function (h) {
+    return '<a class="tile" href="#/w/' + h.s + '"><canvas data-tree="' + h.s + '"></canvas><div class="cap"><b>' + esc(h.th) + '</b><span>' + esc(h.r) + ' · ' + esc(h.en) + '</span><small>' + h.ns + ' meanings · ' + h.nc + ' compounds</small>' + (sub ? '<div class="muted sub">' + sub(h) + '</div>' : '') + '</div></a>';
+  }).join('') + '</div>';
+}
+function crumb(href, th, en) { return '<p class="crumbs top"><a href="' + href + '">' + th + ' <small>' + en + '</small></a><span>›</span></p>'; }
 function pageBeds() {
   var cnt = {}; IDX.heads.forEach(function (h) { h.d.forEach(function (d) { cnt[d] = (cnt[d] || 0) + 1; }); });
-  put(section('แปลง', 'twenty-two beds; a tree stands in every bed its senses reach', 'x:garden') +
-    '<div class="grid">' + Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (d) {
-      return '<a class="tile" href="#/bed/' + enc(d) + '"><canvas data-mark="' + d + '"></canvas><div class="cap"><b>' + esc(dom(d).th) + '</b><span>' + esc(dom(d).en) + ' · ' + cnt[d] + ' trees</span></div></a>';
-    }).join('') + '</div>', 'beds');
+  put(crumb('#/explore', 'สำรวจ', 'explore') + section('หมวด', 'topics; a tree stands in every topic its meanings reach', 'x:garden') +
+    '<div class="topics">' + Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (d) {
+      return '<a class="topic" href="#/bed/' + enc(d) + '"><canvas data-mark="' + d + '"></canvas><b>' + esc(dom(d).th) + '</b><span>' + esc(dom(d).en) + '</span><em>' + cnt[d] + '</em></a>';
+    }).join('') + '</div>');
+  setTab('explore');
 }
 function pageBed(d) {
   var hs = IDX.heads.filter(function (h) { return h.d.indexOf(d) >= 0; }).sort(function (a, b) { return b.nc - a.nc; });
-  put(section(esc(dom(d).th), esc(dom(d).en) + ' · ' + hs.length + ' trees', d) + treeGrid(hs), 'beds');
-}
-function treeGrid(hs, sub) {
-  return '<div class="grid">' + hs.map(function (h) {
-    return '<a class="tile" href="#/w/' + h.s + '"><canvas data-tree="' + h.s + '"></canvas><div class="cap"><b>' + esc(h.th) + '</b><span>' + esc(h.r) + ' · ' + esc(h.en) + '</span>' + (sub ? '<div class="muted" style="font-size:14px">' + sub(h) + '</div>' : '') + '</div></a>';
-  }).join('') + '</div>';
+  put(crumb('#/beds', 'หมวด', 'topics') + section(esc(dom(d).th), esc(dom(d).en), d, hs.length + ' trees') + treeGrid(hs));
+  setTab('explore'); restoreScroll();
 }
 function pageSeeds() {
   var cnt = {}; IDX.heads.forEach(function (h) { cnt[h.o] = (cnt[h.o] || 0) + 1; });
-  put(section('เมล็ด', 'where each word\'s seed came from, as its etymology says', 'o:tai') +
+  put(crumb('#/explore', 'สำรวจ', 'explore') + section('ที่มา', 'where each word came from, as its etymology says', 'o:tai') +
     '<div class="grid">' + Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (o) {
       return '<a class="tile" href="#/seed/' + o + '"><canvas data-mark="o:' + o + '"></canvas><div class="cap"><b>' + ORIGIN[o][0] + '</b><span>' + ORIGIN[o][1] + ' · ' + cnt[o] + ' trees</span></div></a>';
-    }).join('') + '</div>', 'seeds');
+    }).join('') + '</div>');
+  setTab('explore');
 }
 function pageSeed(o) {
   var hs = IDX.heads.filter(function (h) { return h.o === o; }).sort(function (a, b) { return b.nc - a.nc; });
-  put(section(ORIGIN[o] ? ORIGIN[o][0] : o, (ORIGIN[o] ? ORIGIN[o][1] : '') + ' · ' + hs.length + ' trees', 'o:' + o) + treeGrid(hs, function (h) { return esc((h.ety || '').slice(0, 90)); }), 'seeds');
+  put(crumb('#/seeds', 'ที่มา', 'origins') + section(ORIGIN[o] ? ORIGIN[o][0] : o, ORIGIN[o] ? ORIGIN[o][1] : '', 'o:' + o, hs.length + ' trees') + treeGrid(hs, function (h) { return esc((h.ety || '').slice(0, 90)); }));
+  setTab('explore'); restoreScroll();
 }
 function pageGrafts() {
   var cnt = {}; IDX.heads.forEach(function (h) { h.sen.forEach(function (r) { if (r[2] != null && r[3]) cnt[r[3]] = (cnt[r[3]] || 0) + 1; }); });
-  put(section('กิ่ง', 'how one sense grows out of another', 'v:metaphor') +
+  put(crumb('#/explore', 'สำรวจ', 'explore') + section('ความหมายงอก', 'how one meaning grows out of another', 'v:metaphor') +
     '<div class="grid">' + Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (v) {
-      return '<a class="tile" href="#/via/' + v + '"><canvas data-mark="v:' + v + '"></canvas><div class="cap"><b style="color:' + viaCol(v) + '">' + VIA[v].th + '</b><span>' + VIA[v].en + ' · ' + cnt[v] + ' branches</span></div></a>';
-    }).join('') + '</div>', 'grafts');
+      return '<a class="tile" href="#/via/' + v + '"><canvas data-mark="v:' + v + '"></canvas><div class="cap"><b style="color:' + viaCol(v) + '">' + VIA[v].th + ' · ' + VIA[v].en + '</b><span>' + VIA_SAY[v] + ' · ' + cnt[v] + ' branches</span></div></a>';
+    }).join('') + '</div>');
+  setTab('explore');
 }
 function pageVia(v) {
   var rows = [];
   IDX.heads.forEach(function (h) { var by = {}; h.sen.forEach(function (r) { by[r[0]] = r; }); h.sen.forEach(function (r) { if (r[3] === v && r[2] != null && by[r[2]]) rows.push([h, by[r[2]], r]); }); });
-  rows.sort(function () { return Math.random() - 0.5; });
-  put(section(VIA[v] ? VIA[v].th : v, (VIA[v] ? VIA[v].en : '') + ' · ' + rows.length + ' branches', 'v:' + v) +
+  rows.sort(function (a, b) { return b[0].nc - a[0].nc; });
+  put(crumb('#/grafts', 'ความหมายงอก', 'how meanings grow') + section(VIA[v] ? VIA[v].th + ' · ' + VIA[v].en : v, VIA_SAY[v] || '', 'v:' + v, rows.length) +
     '<div class="grid">' + rows.map(function (x) {
-      return '<a class="card" style="text-decoration:none;border-left:6px solid ' + viaCol(v) + '" href="#/w/' + x[0].s + '/' + x[2][0] + '"><b style="font:500 28px var(--th);color:var(--red)">' + esc(x[0].th) + '</b> <span class="muted">' + esc(x[0].r) + '</span>' +
-        '<div style="font-size:16px;margin:4px 0"><b>' + x[1][0] + '</b> ' + esc(x[1][1] || '—') + ' → <b>' + x[2][0] + '</b> ' + esc(x[2][1] || '—') + '</div><div class="muted" style="font-size:15px">' + esc(x[2][5] || '') + '</div></a>';
-    }).join('') + '</div>', 'grafts');
+      return '<a class="card via-card" style="--c:' + viaCol(v) + '" href="#/w/' + x[0].s + '/' + x[2][0] + '"><b class="vt">' + esc(x[0].th) + '</b> <span class="muted">' + esc(x[0].r) + '</span>' +
+        '<div class="vflow"><span>' + esc(x[1][1] || '—') + '</span><em>→</em><span>' + esc(x[2][1] || '—') + '</span></div><div class="muted">' + esc(x[2][5] || '') + '</div></a>';
+    }).join('') + '</div>');
+  setTab('explore'); restoreScroll();
 }
 function pageShapes() {
   var cnt = {}; IDX.compounds.forEach(function (c) { if (c[5]) cnt[c[5]] = (cnt[c[5]] || 0) + 1; });
-  put(section('รูปคำ', 'how compounds are put together: N noun, V verb, ADJ adjective', 'd:speech') +
+  put(crumb('#/explore', 'สำรวจ', 'explore') + section('รูปคำ', 'how compounds are put together', 'd:speech') +
     '<div class="grid">' + Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (p) {
       var ex = IDX.compounds.filter(function (c) { return c[5] === p; }).slice(0, 4).map(function (c) { return c[0]; }).join(' · ');
-      return '<a class="card" style="text-decoration:none" href="#/shape/' + enc(p) + '"><b style="font:600 30px var(--th);color:var(--red)">' + esc(p) + '</b> <span class="muted">' + cnt[p] + '</span><div class="muted">' + esc(p.split('+').map(function (x) { return POS[x] || x; }).join(' + ')) + '</div><div style="font:500 18px var(--th)">' + esc(ex) + '</div></a>';
-    }).join('') + '</div>', 'shapes');
+      return '<a class="card shape" href="#/shape/' + enc(p) + '"><b>' + esc(p.split('+').map(function (x) { return POS[x] || x; }).join(' + ')) + '</b> <span class="muted">' + cnt[p] + '</span><div class="ex">' + esc(ex) + '</div></a>';
+    }).join('') + '</div>');
+  setTab('explore');
 }
 function pageShape(p) {
   var cs = IDX.compounds.filter(function (c) { return c[5] === p; }), byF = {};
   cs.forEach(function (c) { (byF[c[6] || ''] = byF[c[6] || ''] || []).push(c); });
-  put(section(esc(p), esc(p.split('+').map(function (x) { return POS[x] || x; }).join(' + ')) + ' · ' + cs.length, 'd:speech') +
-    Object.keys(byF).map(function (f) { return '<h3 style="margin:16px 0 8px">' + (FRAME[f] ? FRAME[f].join(' · ') : 'other') + ' <small class="muted">' + byF[f].length + '</small></h3><div class="chips">' + byF[f].slice(0, 300).map(function (c) { return chip(c[0], c[1], c[2], '#/k/' + enc(c[0]), 'sm'); }).join('') + '</div>'; }).join(''), 'shapes');
+  put(crumb('#/shapes', 'รูปคำ', 'word shapes') + section(esc(p.split('+').map(function (x) { return POS[x] || x; }).join(' + ')), esc(p), 'd:speech', cs.length) +
+    Object.keys(byF).map(function (f) { return fold(FRAME[f] ? FRAME[f][0] : 'อื่น ๆ', FRAME[f] ? 'names ' + FRAME[f][1] : 'other', byF[f].length, '<div class="chips">' + byF[f].slice(0, 400).map(function (c) { return chip(c[0], c[1], c[2], '#/k/' + enc(c[0]), 'sm'); }).join('') + '</div>', Object.keys(byF).length < 3); }).join(''));
+  setTab('explore'); restoreScroll();
 }
 function pageWeeds() {
   var by = {}; IDX.look.forEach(function (l) { (by[l[2]] = by[l[2]] || []).push(l); });
   var ks = Object.keys(by).sort(function (a, b) { return by[b].length - by[a].length; });
-  put(section('วัชพืช', IDX.look.length + ' words that look like compounds of a head and are not: borrowings, place names, other spellings', 'x:mask') +
-    '<p class="muted">ตา sits inside เมตตา only by spelling: เมตตา is Pali mettā, loving-kindness. The filer pulled each of these out and wrote down why.</p>' +
-    ks.map(function (s) { return '<h3 style="margin:18px 0 8px"><a class="thai-link" href="#/w/' + s + '">' + esc(BY[s].th) + '</a> <small class="muted">' + esc(BY[s].r) + ' · ' + by[s].length + '</small></h3><div class="chips">' + by[s].map(function (l) { return '<a class="chip sm" href="#/k/' + enc(l[0]) + '" title="' + esc(l[4]) + '"><b>' + esc(l[0]) + '</b><i>' + esc(l[1]) + '</i><span>' + (USE[l[3]] || [l[3], l[3]])[1] + '</span></a>'; }).join('') + '</div>'; }).join(''), 'weeds');
+  put(crumb('#/explore', 'สำรวจ', 'explore') + section('วัชพืช', 'words that look like compounds of a head word and are not', 'x:mask', IDX.look.length) +
+    '<p class="lede">ตา sits inside เมตตา only by spelling: เมตตา is Pali mettā, loving-kindness. The filer pulled each of these out and wrote down why.</p>' +
+    ks.map(function (s) { return fold(esc(BY[s].th), esc(BY[s].r) + ' · ' + esc(BY[s].en), by[s].length, '<div class="chips">' + by[s].map(function (l) { return '<a class="chip sm" href="#/k/' + enc(l[0]) + '"><b>' + esc(l[0]) + '</b><i>' + esc(l[1]) + '</i><span>' + (USE[l[3]] || [l[3], l[3]])[1] + '</span></a>'; }).join('') + '</div>', false); }).join(''));
+  setTab('explore'); restoreScroll();
 }
 function pageNotes(s) {
   J('data/notes.json').then(function (N) {
-    NOTES = N;
-    var list = s ? N.filter(function (n) { return n.a.indexOf(s) >= 0; }) : N, out = [], cur = '';
+    var list = s ? N.filter(function (n) { return n.a.indexOf(s) >= 0; }) : N, groups = [], cur = null;
     list.forEach(function (n) {
-      if (/^Build\b|DEFECT|concurrency|collision|^Addendum/i.test(n.h3) && !s) return;
-      if (n.h2 !== cur) { cur = n.h2; out.push('<h3 style="margin:22px 0 6px">' + linkifyThai(n.h2) + '</h3>'); }
-      out.push('<div class="note">' + (n.h3 ? '<div class="d">' + linkifyThai(n.h3) + '</div>' : '') + md(n.t) + (n.a.length ? '<div class="d">' + n.a.map(hlink).join(' · ') + '</div>' : '') + '</div>');
+      if (!cur || cur.h !== n.h2) { cur = { h: n.h2, items: [] }; groups.push(cur); }
+      cur.items.push('<div class="note">' + (n.h3 ? '<div class="d">' + linkifyThai(n.h3) + '</div>' : '') + md(n.t) + (n.a.length ? '<div class="d">' + n.a.map(hlink).join(' · ') + '</div>' : '') + '</div>');
     });
-    put(section('สมุดของผู้จัด', 'the compound filer\'s notebook, ' + (s ? 'on ' + esc(BY[s].th) : 'from the first six by hand on 31 Aug 2026 to today'), 'x:notebook') +
-      '<div class="card notes">' + out.join('') + '</div>', 'notes');
+    put(crumb('#/explore', 'สำรวจ', 'explore') + section('สมุดของผู้จัด', 'the compound filer\'s notebook' + (s ? ' on ' + esc(BY[s].th) : ', from 31 Aug 2026'), 'x:notebook') +
+      '<p class="lede">The filer read each word and decided which meaning every compound grows from. These notes say why.</p>' +
+      groups.map(function (g, i) { return fold(linkifyThai(g.h), '', g.items.length, '<div class="notes">' + g.items.join('') + '</div>', i === 0); }).join(''));
+    setTab('explore'); restoreScroll();
   });
 }
 function pageTrail() {
   var t = trail().slice().reverse();
-  put(section('รอยเท้า', 'where you have wandered, newest first', 'x:trail') +
-    (t.length ? '<div class="chips">' + t.map(function (x) { return '<a class="chip" href="' + x[0] + '"><b>' + esc(x[1]) + '</b></a>'; }).join('') + '</div><p><button class="speak" id="clr" style="padding-left:14px">ลบรอยเท้า · clear the trail</button></p>' : '<p class="muted">ยังไม่มีรอยเท้า · no steps yet. Press เดินเล่น.</p>'), 'trail');
-  var b = document.getElementById('clr'); if (b) b.addEventListener('click', function () { store('trail', []); drawFoot(); pageTrail(); });
+  put(section('รอยเท้า', 'the words you have opened, newest first', 'x:trail', t.length || null) +
+    (t.length ? '<div class="trail">' + t.map(function (x) { return '<a href="' + x[0] + '"><b>' + esc(x[1]) + '</b>' + (x[2] ? '<span>' + esc(String(x[2]).split(',')[0]) + '</span>' : '') + '</a>'; }).join('') + '</div><p><button class="btn ghost" id="clr">ลบรอยเท้า · clear the trail</button></p>'
+      : '<div class="card empty"><canvas data-mark="x:trail"></canvas><p>ยังไม่มีรอยเท้า · no steps yet. Open any word, or press <b>เดินเล่น · wander</b> to jump to a linked one.</p></div>'));
+  setTab('trail');
+  var b = document.getElementById('clr'); if (b) b.addEventListener('click', function () { store('trail', []); pageTrail(); });
 }
 
-/* play: the filer's own job, as a game */
+/* ---------------------------------------------------------------- play: the filer's own job, as two games */
 function pagePlay() {
-  var sc = store('score') || { r: 0, n: 0 };
-  put(section('เล่น', 'file the word yourself', 'x:wander') + '<div class="card" id="game"></div>', 'play');
+  var sc = store('score') || { r: 0, n: 0, best: 0, run: 0 }, mode = store('mode') || 'branch';
+  put(section('เล่น', 'file the words yourself', 'x:wander') +
+    '<div class="seg game-pick" role="tablist"><button role="tab" data-m="branch" aria-selected="' + (mode === 'branch') + '">กิ่งไหน · which branch?</button><button role="tab" data-m="weed" aria-selected="' + (mode === 'weed') + '">ใบหรือวัชพืช · leaf or weed?</button></div>' +
+    '<p class="lede" id="how"></p><div class="card game" id="game"></div>' +
+    '<p class="score" id="score"></p>');
+  setTab('play');
   var g = document.getElementById('game');
+  function tally() { document.getElementById('score').innerHTML = 'ถูก ' + sc.r + ' จาก ' + sc.n + ' · ' + sc.r + ' right of ' + sc.n + (sc.run > 1 ? ' · ติดกัน ' + sc.run + ' in a row' : '') + (sc.best > 1 ? ' · best run ' + sc.best : ''); }
+  function mark(ok) { sc.n++; if (ok) { sc.r++; sc.run = (sc.run || 0) + 1; sc.best = Math.max(sc.best || 0, sc.run); } else sc.run = 0; store('score', sc); tally(); }
+  main.querySelectorAll('.game-pick button').forEach(function (b) { b.addEventListener('click', function () { mode = b.getAttribute('data-m'); store('mode', mode); main.querySelectorAll('.game-pick button').forEach(function (x) { x.setAttribute('aria-selected', x === b); }); round(); }); });
   function round() {
-    var mode = Math.random() < 0.3 ? 'weed' : 'branch';
+    document.getElementById('how').textContent = mode === 'weed'
+      ? 'Is the word built on the head word (a leaf), or does it only look that way (a weed)?'
+      : 'A compound word grows on one meaning of its head word. Pick the meaning it grows on.';
     var pool = IDX.heads.filter(function (h) { return mode === 'weed' ? h.nl >= 2 && h.nc >= 4 : h.sen.filter(function (r) { return r[4] > 0 && r[1]; }).length >= 2; });
     var h = pick(pool);
+    g.innerHTML = '<div class="loading"><canvas width="80" height="80" data-head="' + h.s + '"></canvas></div>'; wire(g);
     head(h.s).then(function (H) {
       if (mode === 'weed') {
         var isWeed = Math.random() < 0.5, w;
         if (isWeed) w = pick(H.look); else { var all = []; H.senses.forEach(function (s) { s.c.forEach(function (c) { all.push(c); }); }); w = pick(all); }
-        g.innerHTML = '<div class="muted">คำนี้เป็นคำประสมของ <b>' + esc(H.th) + '</b> จริงไหม · is this a compound of ' + esc(H.th) + ' (' + esc(H.r) + ')?</div><div class="q">' + esc(w.th) + '</div><div class="muted">' + esc(w.r) + '</div>' +
-          '<div class="answers"><button data-a="1"><span class="n" style="background:#2f7a46">ใ</span>ใบ · a leaf: it is built on ' + esc(H.th) + '</button><button data-a="0"><span class="n" style="background:#7a3a6e">ว</span>วัชพืช · a weed: it only looks that way</button></div><div id="why"></div><p class="score">' + sc.r + ' / ' + sc.n + '</p>';
+        g.innerHTML = '<div class="q-head">Is this built on <b>' + esc(H.th) + '</b> <span class="muted">' + esc(H.r) + ' · ' + esc(H.en.split(',')[0]) + '</span>?</div><div class="q">' + esc(w.th) + '</div><div class="muted">' + esc(w.r) + '</div>' +
+          '<div class="answers two"><button data-a="1"><span class="n" style="background:#2f7a46">ใ</span><span><b>ใบ · a leaf</b><small>built on ' + esc(H.th) + '</small></span></button><button data-a="0"><span class="n" style="background:#7a3a6e">ว</span><span><b>วัชพืช · a weed</b><small>only looks that way</small></span></button></div><div id="why"></div>';
+        wire(g);
         g.querySelectorAll('.answers button').forEach(function (b) { b.addEventListener('click', function () {
-          var ok = (b.getAttribute('data-a') === '0') === isWeed; sc.n++; if (ok) sc.r++; store('score', sc);
+          var ok = (b.getAttribute('data-a') === '0') === isWeed; mark(ok);
           g.querySelectorAll('.answers button').forEach(function (x) { x.disabled = true; x.classList.add((x.getAttribute('data-a') === '0') === isWeed ? 'right' : 'wrong'); });
-          document.getElementById('why').innerHTML = '<p>' + (isWeed ? linkifyThai(w.note) : (w.en ? esc(w.en) + ' · ' : '') + (w.lit ? 'literally ' + esc(w.lit) : '')) + '</p><p><a class="thai-link" href="#/k/' + enc(w.th) + '">' + esc(w.th) + '</a> · <button class="speak" id="next" style="padding-left:14px">ต่อ · next</button></p>';
-          document.getElementById('next').addEventListener('click', round);
+          document.getElementById('why').innerHTML = '<div class="verdict ' + (ok ? 'ok' : 'no') + '"><b>' + (ok ? 'ถูก · right' : 'ไม่ใช่ · not quite') + '</b><p>' + (isWeed ? rich(w.note) : esc(w.th) + (w.en ? ' means ' + esc(w.en) : '') + (w.lit ? ', literally ' + esc(w.lit) : '') + '.') + '</p></div>' +
+            '<div class="row"><button class="btn" id="next">ต่อ · next ›</button><a class="btn ghost" href="#/k/' + enc(w.th) + '">ดูคำ · see the word</a></div>';
+          document.getElementById('next').addEventListener('click', round); document.getElementById('next').focus();
         }); });
         return;
       }
       var withC = H.senses.filter(function (s) { return s.c.length && s.en; }), right = pick(withC), c = pick(right.c);
       var opts = [right].concat(withC.filter(function (s) { return s !== right; }).sort(function () { return Math.random() - 0.5; }).slice(0, 3)).sort(function (a, b) { return a.n - b.n; });
-      g.innerHTML = '<div class="muted">คำนี้อยู่กิ่งไหนของ <b>' + esc(H.th) + '</b> · which branch of ' + esc(H.th) + ' (' + esc(H.r) + ') does it grow on?</div><div class="q">' + esc(c.th) + '</div><div class="muted">' + esc(c.r) + (c.en ? ' · ' + esc(c.en) : '') + '</div>' +
-        '<div class="answers">' + opts.map(function (s) { return '<button data-n="' + s.n + '"><span class="n" style="background:' + viaCol(s.via) + '">' + s.n + '</span>' + esc(s.en) + '</button>'; }).join('') + '</div><div id="why"></div><p class="score">' + sc.r + ' / ' + sc.n + '</p>';
+      g.innerHTML = '<div class="q-head">Which meaning of <b>' + esc(H.th) + '</b> <span class="muted">' + esc(H.r) + '</span> does it grow on?</div><div class="q">' + esc(c.th) + '</div><div class="muted">' + esc(c.r) + (c.en ? ' · ' + esc(c.en) : '') + '</div>' +
+        '<div class="answers">' + opts.map(function (s) { return '<button data-n="' + s.n + '"><span class="n" style="background:' + viaCol(s.via) + '">' + s.n + '</span><span><b>' + esc(s.en) + '</b><small>' + esc(s.th.slice(0, 60)) + '</small></span></button>'; }).join('') + '</div><div id="why"></div>';
       g.querySelectorAll('.answers button').forEach(function (b) { b.addEventListener('click', function () {
-        var ok = +b.getAttribute('data-n') === right.n; sc.n++; if (ok) sc.r++; store('score', sc);
+        var ok = +b.getAttribute('data-n') === right.n; mark(ok);
         g.querySelectorAll('.answers button').forEach(function (x) { x.disabled = true; x.classList.add(+x.getAttribute('data-n') === right.n ? 'right' : 'wrong'); });
-        document.getElementById('why').innerHTML = (H.rule ? '<p class="muted">กฎของผู้จัด · the filer\'s rule: ' + linkifyThai(H.rule) + '</p>' : '') + '<p><a class="thai-link" href="#/w/' + H.s + '/' + right.n + '">' + esc(H.th) + ' ' + right.n + '</a> · <button class="speak" id="next" style="padding-left:14px">ต่อ · next</button></p>';
-        document.getElementById('next').addEventListener('click', round);
+        document.getElementById('why').innerHTML = '<div class="verdict ' + (ok ? 'ok' : 'no') + '"><b>' + (ok ? 'ถูก · right' : 'ไม่ใช่ · it grows on ' + right.n + ', ' + esc(right.en)) + '</b></div>' +
+          '<div class="row"><button class="btn" id="next">ต่อ · next ›</button><a class="btn ghost" href="#/w/' + H.s + '/' + right.n + '/' + enc(c.th) + '">ดูบนต้นไม้ · see it on the tree</a></div>' +
+          (H.rule ? fold('วิธีแบ่ง', 'how the filer divided ' + esc(H.th), null, '<p class="rule">' + rich(H.rule) + '</p>', false) : '');
+        document.getElementById('next').addEventListener('click', round); document.getElementById('next').focus();
       }); });
     });
   }
-  round();
+  tally(); round();
 }
-function pageMissing() { put('<div class="card"><p>ไม่พบ · not found.</p><p><a href="#/">สวน · the garden</a></p></div>', ''); }
+function pageMissing() { put('<div class="card empty"><canvas data-mark="x:search"></canvas><p>ไม่พบหน้านี้ · this page is not in the garden.</p><p><a class="btn" href="#/">กลับสวน · back to the garden</a></p></div>'); setTab(''); }
 
+/* ---------------------------------------------------------------- the guide: a real tree, one part at a time */
+var GUIDE = [
+  ['trunk', 'ต้นหนึ่งคือคำหนึ่ง', 'Each tree is one Thai word. This one is ตา, the eye.'],
+  ['sense', 'กิ่งคือความหมาย', 'Each numbered branch is one meaning of the word. A branch grows out of the meaning it came from, and its colour says how: by metaphor, by naming a neighbour, by narrowing or widening.'],
+  ['leaf', 'ใบคือคำประสม', 'Each leaf is one compound word built on that meaning, like ตาข่าย, a net. Tap a branch or a leaf to see its words.'],
+  ['weed', 'วัชพืช', 'Weeds at the foot only look like they contain the word. เมตตา has ตา in its spelling, and is Pali mettā, loving-kindness.'],
+  ['root', 'ราก', 'Under the ground: where the word came from, and the same word in Lao, Shan and other sister languages. Switch to ราก · the roots on any tree to read them.'],
+  ['', 'เดินเล่น', 'Search any word at the top, or press เดินเล่น · wander to jump to a linked word. The ? button brings this tour back.']
+];
+var gStep = 0, gTree = null;
+function guide() {
+  gStep = 0; guideEl.hidden = false; document.body.classList.add('has-guide');
+  guideEl.innerHTML = '<div class="g-box"><canvas id="gcv"></canvas><div class="g-text" aria-live="polite"></div><div class="g-nav"><button class="btn ghost" id="gskip">ข้าม · skip</button><span id="gdots"></span><button class="btn" id="gnext">ต่อ · next ›</button></div></div>';
+  var cv = document.getElementById('gcv');
+  (gTree ? Promise.resolve(gTree) : head('ta')).then(function (h) {
+    gTree = h;
+    var big = h.senses.slice().sort(function (a, b) { return b.c.length - a.c.length; })[0].n;
+    pic(cv, function (c, W, H, t) {
+      var key = GUIDE[gStep][0], lift = key === 'root' ? H * 0.75 : 0, VH = H * 1.75;
+      c.save(); c.translate(0, -lift);
+      var hs = MDTREE.draw(c, W, VH, t, h, { sky: true, roots: true, hi: key === 'sense' || key === 'leaf' ? big : null });
+      c.restore();
+      var target = null;
+      hs.forEach(function (q) {
+        if (target) return;
+        if (key === 'sense' && q.k === 'sense' && q.n === big) target = q;
+        if (key === 'leaf' && q.k === 'leaf' && q.n === big) target = q;
+        if (key === 'trunk' && q.k === 'trunk') target = q;
+        if (key === 'weed' && q.k === 'weed') target = q;
+        if (key === 'root' && q.k === 'root') target = q;
+      });
+      if (target) {
+        var x = target.x, y = target.y - lift, pr = 26 + 6 * Math.sin(t / 250);
+        c.save(); c.fillStyle = 'rgba(20,12,4,.38)'; c.beginPath(); c.rect(0, 0, W, H); c.arc(x, y, pr + 14, 0, 6.283, true); c.fill('evenodd');
+        c.strokeStyle = '#f6d25a'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, pr, 0, 6.283); c.stroke(); c.restore();
+      }
+    });
+    show();
+  });
+  function show() {
+    var s = GUIDE[gStep];
+    guideEl.querySelector('.g-text').innerHTML = '<b>' + s[1] + '</b><p>' + s[2] + '</p>';
+    document.getElementById('gdots').innerHTML = GUIDE.map(function (x, i) { return '<i class="' + (i === gStep ? 'on' : '') + '"></i>'; }).join('');
+    document.getElementById('gnext').textContent = gStep === GUIDE.length - 1 ? 'เริ่มเลย · start' : 'ต่อ · next ›';
+    cv._dirty = 1;
+  }
+  document.getElementById('gnext').addEventListener('click', function () { if (gStep < GUIDE.length - 1) { gStep++; show(); } else closeGuide(); });
+  document.getElementById('gskip').addEventListener('click', closeGuide);
+  document.getElementById('gnext').focus();
+}
+function closeGuide() { guideEl.hidden = true; guideEl.innerHTML = ''; document.body.classList.remove('has-guide'); store('guided', 1); var inv = main.querySelector('.invite'); if (inv) inv.remove(); }
+
+/* ---------------------------------------------------------------- routing */
 function route() {
   var h = decodeURIComponent(location.hash.replace(/^#\/?/, '')), p = h.split('/');
   here = { kind: 'page' };
+  document.getElementById('back').hidden = !h;
   if (!h) { here = { kind: 'home' }; return pageHome(); }
   switch (p[0]) {
-    case 'w': return pageHead(p[1], p[2]);
+    case 'w': return pageHead(p[1], p[2], p[3]);
     case 'k': return pageWord(p.slice(1).join('/'));
+    case 'explore': return pageExplore();
     case 'net': return pageNet();
     case 'beds': return pageBeds();
     case 'bed': return pageBed(p[1]);
@@ -563,10 +748,14 @@ function route() {
   }
   pageMissing();
 }
+window.addEventListener('hashchange', function (e) {
+  SCROLL[curHash] = lastY; curHash = location.hash; depth++; route();
+});
+window.addEventListener('popstate', function () { depth = Math.max(0, depth - 2); });
 
 J('data/index.json').then(function (idx) {
   IDX = idx; IDX.byTh = {};
   idx.heads.forEach(function (h) { BY[h.s] = h; IDX.byTh[h.th] = h.s; });
-  drawFoot(); wire(document); window.addEventListener('hashchange', route); route();
-}).catch(function (e) { main.innerHTML = '<div class="card"><p>โหลดไม่ได้ · could not load the garden.</p></div>'; console.error(e); });
+  drawFoot(); wire(document); route();
+}).catch(function (e) { main.innerHTML = '<div class="card"><p>โหลดไม่ได้ · could not load the garden: its data files did not arrive.</p></div>'; console.error(e); });
 })();
