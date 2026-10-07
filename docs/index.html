@@ -20,12 +20,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <script>if(/[.]translate[.]goog$/.test(location.hostname))location.replace("https://"+location.hostname.slice(0,-15).replace(/--/g,"~").replace(/-/g,".").replace(/~/g,"-")+location.pathname+location.search.replace(/([?&])_x_tr_[^&]*/g,"$1").replace(/[?&]+$/,"").replace(/[?]&+/,"?")+location.hash)</script>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao&family=Noto+Sans+Tai+Tham&family=Noto+Sans+Tai+Viet&family=Noto+Sans+New+Tai+Lue&family=Noto+Sans+Myanmar&family=Noto+Sans+Tai+Le&family=Noto+Sans+Ahom&family=Noto+Sans+Devanagari&family=Noto+Sans+Khmer&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600&family=Noto+Sans+Lao&family=Noto+Sans+Tai+Tham&family=Noto+Sans+Tai+Viet&family=Noto+Sans+New+Tai+Lue&family=Noto+Sans+Myanmar&family=Noto+Sans+Tai+Le&family=Noto+Sans+Ahom&family=Noto+Sans+Devanagari&family=Noto+Sans+Khmer&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="app.css">
 </head>
 <body>
 <header class="top">
-  <button id="back" class="iconbtn back" aria-label="ย้อนกลับ · back" hidden>‹</button>
   <a class="brand" href="#/"><canvas class="brand-pic" width="44" height="44" data-mark="x:garden"></canvas><span><b>สวนคำ</b><small>The Word Garden</small></span></a>
   <form class="find" role="search" onsubmit="return false"><input id="q" type="search" autocomplete="off" placeholder="หาคำ · find a word" aria-label="หาคำ · find a word in Thai, romanised or English"><div id="hits" class="hits" hidden></div></form>
   <button id="help" class="iconbtn" aria-label="วิธีดูต้นไม้ · how to read a tree" title="วิธีดูต้นไม้ · how to read a tree">?</button>
@@ -38,6 +37,8 @@
   <a href="#/play" data-t="play"><canvas data-mark="x:wander"></canvas><b>เล่น</b><small>play</small></a>
   <a href="#/trail" data-t="trail"><canvas data-mark="x:trail"></canvas><b>ประวัติ</b><small>history</small></a>
 </nav>
+<nav id="crumbs" class="crumbbar" aria-label="เส้นทาง · where you are" hidden></nav>
+<div id="hintbar" class="hintbar" hidden></div>
 <main id="main" tabindex="-1"><div class="loading"><canvas width="160" height="160" data-mark="x:garden"></canvas><p>กำลังปลูก… planting…</p></div></main>
 <footer class="foot" id="foot"></footer>
 <div id="sheet" class="sheet" role="dialog" aria-modal="false" aria-label="กิ่ง · branch" hidden></div>
