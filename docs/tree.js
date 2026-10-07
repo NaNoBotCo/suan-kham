@@ -160,7 +160,7 @@ function drawRoots(c, W, H, t, h, cx, gy, tw, hits, night) {
 function draw(c, W, H, t, h, o) {
   o = o || {};
   var mini = !!o.mini, hits = [], seed = o.seed != null ? o.seed : hash(h.s || h.th || ''), r = rnd(seed), night = false;
-  var withRoots = !mini && o.roots && h.roots, FH = withRoots ? H * 0.58 : H;
+  var withRoots = !mini && o.roots && h.roots, FH = withRoots ? H * (W < 520 ? 0.52 : 0.58) : H;
   if (o.sky) night = sky(c, W, FH, t);
   var L = layout(h), gy = withRoots ? FH : FH * (mini ? 0.9 : 0.86), cx = W / 2, sc = Math.min(W * 0.95, FH * 1.25);
   if (withRoots) gy = FH;

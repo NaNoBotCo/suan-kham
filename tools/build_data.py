@@ -201,7 +201,7 @@ def main():
             W[th]['e'] = allth[th]
     idx = {
         'heads': index_heads,
-        'domains': dict({k: {'th': v['th'], 'en': v['en']} for k, v in doms.items()}, **{'d:toponym': {'th': 'ชื่อบ้านนามเมือง', 'en': 'place names'}, 'd:material': {'th': 'วัสดุ', 'en': 'stuff and material'}}),
+        'domains': dict({k: {'th': v['th'], 'en': v['en']} for k, v in doms.items()}, **{'d:toponym': {'th': 'ชื่อบ้านนามเมือง', 'en': 'place names'}, 'd:material': {'th': 'วัสดุ', 'en': 'stuff and material'}, 'd:place': {'th': 'ที่ทาง', 'en': 'places'}}),
         'look': look_flat,
         'edges': sorted([[a, b, len(v), sorted(v)[:6]] for (a, b), v in edges.items()], key=lambda r: -r[2]),
         'compounds': compounds_flat,
