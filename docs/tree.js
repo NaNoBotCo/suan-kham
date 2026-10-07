@@ -178,7 +178,7 @@ function draw(c, W, H, t, h, o) {
   /* roots spread at the foot */
   [-1, 1].forEach(function (sg) { paper(c, polyPath(branch(c, [cx + sg * tw * 0.3, gy - tw * 0.2], [cx + sg * tw * 2.2, gy + tw * 0.25], tw * 0.6, tw * 0.1, '', 0)), '#5e3b20', 0.6); });
 
-  var lightN = o.hi, tips = [], segs = [];
+  var lightN = o.hi, tips = [], segs = [], ONE = null;
   /* pass 1: the shape in unit lengths, trunk top at 0,0 */
   function grow(s, from, ang, a0, a1, fromW, asTrunk) {
     var sway = Math.sin(t / 1700 + s.n * 1.3) * 0.025 * (s.d + 1), to;
@@ -219,6 +219,9 @@ function draw(c, W, H, t, h, o) {
   tips.forEach(function (p) { var q = P([p.x, p.y]); if (p.x === 0 && p.y === 0) q = [top[0], top[1]]; p.x = q[0]; p.y = q[1]; });
   /* weeds: the lookalikes that only pretend to contain the head */
   var nl = Math.min(h.nl || (h.look ? h.look.length : 0), 16);
+  /* places a guide can point at; r 0 so a tap never lands on them */
+  hits.push({ k: 'trunk', x: cx, y: gy - trunkH * 0.45, r: 0 });
+  if (nl) hits.push({ k: 'weed', x: cx - tw * 2.6 - sc * 0.01, y: gy - sc * 0.02, r: 0 });
   for (var wv = 0; wv < nl; wv++) {
     var wx = cx + (wv % 2 ? 1 : -1) * (tw * 2.6 + (wv >> 1) * sc * 0.03 + r() * sc * 0.01), wh = sc * (0.025 + r() * 0.02);
     paper(c, function (q) { q.beginPath(); q.moveTo(wx - wh * 0.4, gy); for (var j = 0; j < 5; j++) { var jx = wx - wh * 0.4 + j * wh * 0.2; q.lineTo(jx + wh * 0.1 + Math.sin(t / 700 + wv + j) * wh * 0.08, gy - wh * (0.6 + 0.4 * Math.sin(j * 2.1 + wv))); q.lineTo(jx + wh * 0.2, gy); } q.closePath(); }, '#4a6a2a', 0.4);
@@ -245,8 +248,10 @@ function draw(c, W, H, t, h, o) {
     c.restore();
     leaves.forEach(function (L2, i) {
       var sw = Math.sin(t / 900 + i * 0.7 + s.n) * 0.3, col = p.lit ? ['#f2b83a', '#e8a02a', '#f6cc5a'][i % 3] : night ? ['#2f6a3a', '#3a7a44', '#24583a'][i % 3] : ['#3f8f4a', '#5aa24e', '#2f7a46', '#7ab04e'][(i + s.n) % 4];
-      leaf(c, L2[0], L2[1], ll * (0.85 + lr() * 0.3), L2[2] + sw, col, 0.5);
-      if (!mini && s.c && s.c[L2[3]]) hits.push({ k: 'leaf', n: s.n, th: s.c[L2[3]].th, x: L2[0] + Math.cos(L2[2]) * ll * 0.5, y: L2[1] + Math.sin(L2[2]) * ll * 0.5, r: Math.max(9, ll * 0.7) });
+      var cw = s.c && s.c[L2[3]], one = !!(o.leaf && cw && cw.th === o.leaf), lsz = ll * (0.85 + lr() * 0.3);
+      if (one) ONE = [L2[0], L2[1], L2[2], sw];   /* drawn last, over the badges */
+      else leaf(c, L2[0], L2[1], lsz, L2[2] + sw, col, 0.5);
+      if (!mini && cw) hits.push({ k: 'leaf', n: s.n, th: s.c[L2[3]].th, x: L2[0] + Math.cos(L2[2]) * ll * 0.5, y: L2[1] + Math.sin(L2[2]) * ll * 0.5, r: Math.max(9, ll * 0.7) });
     });
     if (!n) { leaf(c, p.x, p.y, ll * 0.8, -2.2 + Math.sin(t / 800 + s.n) * 0.2, '#9cc25a', 0.4); leaf(c, p.x, p.y, ll * 0.8, -0.9 - Math.sin(t / 800 + s.n) * 0.2, '#9cc25a', 0.4); }
     if (!mini) {
@@ -257,6 +262,15 @@ function draw(c, W, H, t, h, o) {
       hits.push({ k: 'sense', n: s.n, x: p.x, y: p.y, r: br + 6 });
     }
   });
+  /* the one leaf a word page is about: bigger, red, ringed, pushed out past its branch's badge */
+  if (ONE) {
+    var ol = Math.max(10, Math.min(FH * 0.045, k * 0.06)), ox2 = ONE[0] + Math.cos(ONE[2]) * ol * 1.4, oy2 = ONE[1] + Math.sin(ONE[2]) * ol * 1.4, pu = 0.5 + 0.5 * Math.sin(t / 260);
+    c.save(); c.strokeStyle = '#d9342b'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(ONE[0], ONE[1]); c.lineTo(ox2, oy2); c.stroke(); c.restore();
+    leaf(c, ox2, oy2, ol * 2.2, ONE[2] + ONE[3] * 0.4, '#d9342b', 1.4);
+    var cx2 = ox2 + Math.cos(ONE[2]) * ol * 1.1, cy2 = oy2 + Math.sin(ONE[2]) * ol * 1.1;
+    c.save(); c.strokeStyle = 'rgba(255,236,170,' + (0.55 + 0.45 * pu) + ')'; c.lineWidth = 3; c.beginPath(); c.arc(cx2, cy2, ol * (1.9 + pu * 0.4), 0, TAU); c.stroke(); c.restore();
+    hits.push({ k: 'here', x: cx2, y: cy2, r: 0 });
+  }
   /* the head's name on a board at the foot */
   if (!mini && o.sign !== false) {
     var fs = Math.round(Math.max(18, sc * 0.05)); c.font = '600 ' + fs + 'px "Mitr","Sarabun",sans-serif';
