@@ -237,7 +237,7 @@ P.tha = function (c, x, y, s, t) {
 /* ลูก child / ball: a child kicks the takraw ball, which arcs up and comes back to the foot */
 P.luk = function (c, x, y, s, t) {
   var gy = y + s * 0.88, u = fr(t / 2200), hx = x - s * 0.4, hy = gy - s * 0.74, TL = s * 0.38;
-  function swing(u2) { var a, r; if (u2 < 0.08) { a = lerp(-0.5, 1.1, sm(u2 / 0.08)); r = lerp(-1.0, 0.1, sm(u2 / 0.08)); } else if (u2 < 0.2) { a = lerp(1.1, 0.1, sm((u2 - 0.08) / 0.12)); r = lerp(0.1, -0.2, sm((u2 - 0.08) / 0.12)); } else if (u2 < 0.75) { a = 0.1; r = -0.2; } else { a = lerp(0.1, -0.5, sm((u2 - 0.75) / 0.25)); r = lerp(-0.2, -1.0, sm((u2 - 0.75) / 0.25)); } return [a, r]; }
+  function swing(u2) { var a, r; if (u2 < 0.08) { a = lerp(-0.5, 1.1, sm(u2 / 0.08)); r = lerp(-1.0, 0.1, sm(u2 / 0.08)); } else if (u2 < 0.2) { a = lerp(1.1, -0.3, sm((u2 - 0.08) / 0.12)); r = lerp(0.1, -0.8, sm((u2 - 0.08) / 0.12)); } else if (u2 < 0.75) { a = -0.3 + 0.05 * Math.sin(u2 * 12); r = -0.8; } else { a = lerp(-0.3, -0.5, sm((u2 - 0.75) / 0.25)); r = lerp(-0.8, -1.0, sm((u2 - 0.75) / 0.25)); } return [a, r]; }
   function foot(u2) { var q = swing(u2), kx = hx + Math.sin(q[0]) * TL, ky = hy + Math.cos(q[0]) * TL; return [kx + Math.sin(q[0] + q[1]) * TL, ky + Math.cos(q[0] + q[1]) * TL]; }
   var home = foot(0.05), v = fr(u - 0.05), bx = home[0] + s * 0.1 + s * 0.16 * Math.sin(v * PI), by = home[1] - Math.sin(v * PI) * s * 1.0 - s * 0.04;
   if (u < 0.05) { bx = home[0] + s * 0.1; by = home[1] - s * 0.04; }
@@ -1012,7 +1012,8 @@ P.hu = function (c, x, y, s, t) {
   paper(c, ball(ex + s * 0.3, ey - s * 0.08, s * 0.7, 8), '#1b1410', 1);
   paper(c, ball(ex + s * 0.28, ey + s * 0.22, s * 0.62, 8), '#e0a97c', 1.2);
   var E = function (a, b) { return [ex + a * s, ey + b * s]; };
-  paper(c, blob([[-0.12, -0.36], [0.05, -0.5], [0.26, -0.44], [0.36, -0.2], [0.35, 0.1], [0.24, 0.34], [0.1, 0.52], [-0.04, 0.54], [-0.14, 0.4], [-0.2, 0.12], [-0.22, -0.14]].map(function (p) { return E(p[0], p[1]); })), '#d9a27a', 1.4);
+  var earP = blob([[-0.12, -0.36], [0.05, -0.5], [0.26, -0.44], [0.36, -0.2], [0.35, 0.1], [0.24, 0.34], [0.1, 0.52], [-0.04, 0.54], [-0.14, 0.4], [-0.2, 0.12], [-0.22, -0.14]].map(function (p) { return E(p[0], p[1]); }));
+  paper(c, earP, '#efc39c', 1.6); c.save(); c.strokeStyle = '#a8663c'; c.lineWidth = Math.max(1, s * 0.022); earP(c); c.stroke(); c.restore();
   c.save(); c.strokeStyle = '#b87a52'; c.lineWidth = Math.max(1, s * 0.035); c.lineCap = 'round'; c.beginPath(); c.moveTo(ex - s * 0.08, ey - s * 0.3); c.bezierCurveTo(ex + s * 0.1, ey - s * 0.44, ex + s * 0.26, ey - s * 0.36, ex + s * 0.28, ey - s * 0.12); c.bezierCurveTo(ex + s * 0.29, ey + s * 0.14, ex + s * 0.2, ey + s * 0.3, ex + s * 0.1, ey + s * 0.4); c.stroke(); c.restore();
   flat(c, ell(ex + s * 0.03, ey + s * 0.02, s * 0.1, s * 0.17, -0.1), '#9a5a38');
   c.save(); c.strokeStyle = '#b87a52'; c.lineWidth = Math.max(0.8, s * 0.025); c.beginPath(); c.moveTo(ex + s * 0.16, ey - s * 0.26); c.bezierCurveTo(ex + s * 0.06, ey - s * 0.12, ex + s * 0.1, ey + s * 0.0, ex + s * 0.02, ey + s * 0.16); c.stroke(); c.beginPath(); c.moveTo(ex + s * 0.1, ey - s * 0.12); c.quadraticCurveTo(ex - s * 0.04, ey - s * 0.2, ex - s * 0.08, ey - s * 0.1); c.stroke(); c.restore();
@@ -1135,7 +1136,7 @@ P.kaeng = function (c, x, y, s, t) {
   [[-0.88, 0.0, 0.5, CRIM], [-0.72, 0.06, 0.8, '#c0392b'], [-0.82, 0.12, 0.2, '#3f8f4a']].forEach(function (cc) { var cx2 = x + cc[0] * s, cy2 = gy - s * 0.04 + cc[1] * s * 0.5, pts = []; for (var j = 0; j <= 8; j++) { var v = j / 8; pts.push([cx2 + v * s * 0.32 * Math.cos(cc[2]) - Math.sin(v * 3) * s * 0.0, cy2 - v * s * 0.32 * Math.sin(cc[2]) + Math.sin(v * 2.6) * s * 0.06]); } paper(c, ribbon(pts, s * 0.075, s * 0.012), cc[3], 0.6); paper(c, ell(cx2, cy2, s * 0.035, s * 0.03), '#3f8442', 0.4); line(c, [[cx2, cy2], [cx2 - s * 0.05, cy2 - s * 0.07]], '#3f8442', s * 0.02); });
 };
 /* ขา leg: two legs in a sarong walking, the feet in sandals, a bag swinging */
-P.kha = function (c, x, y, s, t) {
+P['kha-3'] = function (c, x, y, s, t) {
   var p = t / 380, sw = Math.sin(p), L = s * 0.5, gy = y + s * 0.86, hx = x - s * 0.05, k;
   var a1 = sw * 0.55, k1 = -0.5 * (0.4 + 0.6 * Math.max(0, -Math.cos(p))), a2 = -sw * 0.55, k2 = -0.5 * (0.4 + 0.6 * Math.max(0, Math.cos(p)));
   function leg(a, kn) { var kx = Math.sin(a) * L, ky = Math.cos(a) * L; return [[0, 0], [kx, ky], [kx + Math.sin(a + kn) * L, ky + Math.cos(a + kn) * L]]; }
@@ -1189,14 +1190,14 @@ P['khon-2'] = function (c, x, y, s, t) {
 };
 /* ต้น trunk: a tree grows from a sapling to its full height and back again, slowly */
 P.ton = function (c, x, y, s, t) {
-  var g = 0.5 - 0.5 * Math.cos(t / 3600), gy = y + s * 0.88, k, cg = sm((g - 0.18) / 0.8), sap = 1 - sm(g * 3.2), sway = Math.sin(t / 800) * s * 0.03;
+  var g = 0.5 - 0.5 * Math.cos(t / 3600), gy = y + s * 0.88, k, cg = sm((g - 0.1) / 0.88), sap = 1 - sm((g - 0.04) / 0.32), sway = Math.sin(t / 800) * s * 0.03;
   paper(c, blob([[x - s * 0.95, gy + s * 0.08], [x - s * 0.5, gy - s * 0.1], [x + s * 0.5, gy - s * 0.1], [x + s * 0.95, gy + s * 0.08], [x, gy + s * 0.14]]), '#6aa84a', 0.9);
   flat(c, ell(x, gy - s * 0.02, s * (0.2 + g * 0.3), s * 0.04), 'rgba(40,60,20,.3)');
   var Ht = s * (0.2 + 1.0 * g), wb = s * (0.035 + 0.09 * g), topx = x + sway * g;
   paper(c, poly([[x - wb, gy - s * 0.02], [x + wb, gy - s * 0.02], [topx + wb * 0.45, gy - Ht], [topx - wb * 0.45, gy - Ht]]), '#6a4a2a', 0.9 + g);
   if (g > 0.3) for (k = 0; k < 4; k++) line(c, [[x - wb * 0.4 + k * wb * 0.3, gy - s * 0.04], [topx - wb * 0.2 + k * wb * 0.15, gy - Ht * (0.5 + k * 0.1)]], 'rgba(40,20,5,.35)', s * 0.012);
-  if (cg > 0.1) {
-    var R = s * (0.16 + 0.52 * cg), cy = gy - Ht - R * 0.2;
+  if (cg > 0.02) {
+    var R = s * (0.1 + 0.58 * cg), cy = gy - Ht - R * 0.2;
     [[-0.7, 0.3, 0.75], [0.7, 0.25, 0.78], [0, -0.1, 1.0], [-0.35, -0.45, 0.7], [0.4, -0.5, 0.68]].forEach(function (b, i) {
       var bs = 1 + 0.025 * Math.sin(t / 600 + i * 1.5); paper(c, ball(topx + b[0] * R * 0.85 + sway * 0.6, cy + b[1] * R * 0.8, R * b[2] * 0.62 * bs, 5 + i), ['#2f7a3a', '#3f8f4a', '#4d9e52', '#3a8442', '#5db05a'][i], 1 + cg * 0.6);
     });
@@ -1263,8 +1264,8 @@ P['khao-4'] = function (c, x, y, s, t) {
   portal(c, x, y, s * 0.98, '#2a5a3a', function () {
     paper(c, rect(x - s, y - s, s * 2, s * 2), '#2a5a3a', 0.2);
     [[-0.7, -0.5, 0.5, 0.3], [0.75, -0.2, 2.6, 0.35], [-0.6, 0.55, -0.4, 0.4], [0.65, 0.65, 3.4, 0.3]].forEach(function (l, i) { flat(c, lf(x + l[0] * s, y + l[1] * s, s * l[3] * 1.6, s * 0.12, l[2]), i % 2 ? '#3f8442' : '#357a40'); });
-    var a = 0.22 * Math.sin(t / 900), pvx = x, pvy = y - s * 0.9;
-    c.save(); c.translate(pvx, pvy); c.rotate(a);
+    var a = 0.22 * Math.sin(t / 900), pvx = x, pvy = y - s * 0.93;
+    c.save(); c.translate(pvx, pvy); c.rotate(a); c.scale(1.2, 1.2);
     paper(c, ball(0, 0, s * 0.045, 3), GOLD, 0.5); line(c, [[0, 0], [0, s * 0.3]], '#e8d9b0', s * 0.02);
     /* the crown of buds */
     var cy = s * 0.5;
@@ -1289,8 +1290,10 @@ P.dam = function (c, x, y, s, t) {
     paper(c, rect(x - s, y - s, s * 2, s * 2), '#1c2644', 0.2);
     var g = c.createRadialGradient(x - s * 0.45, y - s * 0.5, s * 0.1, x - s * 0.45, y - s * 0.5, s * 0.8); g.addColorStop(0, 'rgba(255,240,200,.45)'); g.addColorStop(1, 'rgba(255,240,200,0)'); c.fillStyle = g; c.fillRect(x - s, y - s, s * 2, s * 2);
     for (k = 0; k < 12; k++) { var tw = 0.4 + 0.6 * Math.max(0, Math.sin(t / 500 + k * 2.1)); c.fillStyle = 'rgba(255,248,220,' + (tw * 0.9).toFixed(2) + ')'; c.beginPath(); c.arc(x + (((k * 0.618) % 1) * 1.8 - 0.9) * s, y - s * 0.9 + ((k * 0.381) % 1) * s * 0.9, s * (0.012 + (k % 3) * 0.006), 0, TAU); c.fill(); }
-    paper(c, ball(x - s * 0.45, y - s * 0.5, s * 0.26, 6), '#fbf0cf', 0.8);
-    flat(c, ball(x - s * 0.34, y - s * 0.56, s * 0.23, 6), '#1c2644');
+    var Mx = x - s * 0.45, My = y - s * 0.5, MR = s * 0.26, Bx = Mx + s * 0.13, By = My - s * 0.07, BR2 = s * 0.22, dd = Math.sqrt((Bx - Mx) * (Bx - Mx) + (By - My) * (By - My)), ph0 = Math.atan2(By - My, Bx - Mx), al = Math.acos((MR * MR + dd * dd - BR2 * BR2) / (2 * MR * dd));
+    var P0 = [Mx + MR * Math.cos(ph0 + al), My + MR * Math.sin(ph0 + al)], P1 = [Mx + MR * Math.cos(ph0 - al), My + MR * Math.sin(ph0 - al)], q0 = Math.atan2(P0[1] - By, P0[0] - Bx), q1 = Math.atan2(P1[1] - By, P1[0] - Bx);
+    var dl = ((q0 - q1) % TAU + TAU) % TAU, mid = q1 + dl / 2, ccw = Math.cos(mid - (ph0 + PI)) < 0;
+    paper(c, function (q) { q.beginPath(); q.arc(Mx, My, MR, ph0 + al, ph0 - al + TAU, false); q.arc(Bx, By, BR2, q1, q0, ccw); q.closePath(); }, '#fbf0cf', 0.8);
     var br = [[x - s * 1.0, y + s * 0.62], [x - s * 0.4, y + s * 0.56], [x + s * 0.3, y + s * 0.6], [x + s * 1.0, y + s * 0.5]];
     paper(c, ribbon([br[0], br[1], br[2], br[3]], s * 0.1, s * 0.05), '#0f0d14', 1);
     [[-0.7, 0.55, -1.0], [0.55, 0.57, -0.4], [0.75, 0.52, -2.0], [-0.3, 0.57, -2.4]].forEach(function (l, i) { flat(c, lf(x + l[0] * s, y + l[1] * s, s * 0.3, s * 0.07, l[2] + Math.sin(t / 900 + i) * 0.06), '#1f3a2a'); });
@@ -1454,7 +1457,7 @@ P.mueang = function (c, x, y, s, t) {
   });
 };
 
-var KEYS = ['nam', 'ban', 'na', 'mae', 'tha', 'luk', 'hua', 'ta', 'na-2', 'pa', 'thong', 'khao', 'phra', 'mai', 'fai', 'pak', 'mue', 'chang', 'ngoen', 'ya', 'thang', 'khao-3', 'ruea', 'fa', 'khai', 'lom', 'sai-2', 'kai', 'tha-le', 'din', 'wat', 'bai', 'hu', 'rot', 'nok', 'cha', 'kaeng', 'kha', 'khon-2', 'ton', 'hin', 'daeng', 'khao-4', 'dam', 'si', 'saeng', 'sen', 'suan', 'mueang'];
+var KEYS = ['nam', 'ban', 'na', 'mae', 'tha', 'luk', 'hua', 'ta', 'na-2', 'pa', 'thong', 'khao', 'phra', 'mai', 'fai', 'pak', 'mue', 'chang', 'ngoen', 'ya', 'thang', 'khao-3', 'ruea', 'fa', 'khai', 'lom', 'sai-2', 'kai', 'tha-le', 'din', 'wat', 'bai', 'hu', 'rot', 'nok', 'cha', 'kaeng', 'kha-3', 'khon-2', 'ton', 'hin', 'daeng', 'khao-4', 'dam', 'si', 'saeng', 'sen', 'suan', 'mueang'];
 API.keys = KEYS.filter(function (k) { return P[k]; });
 API.draw = function (key, c, x, y, s, t) { var f = P[key]; if (!f) return false; c.save(); f(c, x, y, s, t || 0); c.restore(); return true; };
 window.MDKHAMHEADS = API;
