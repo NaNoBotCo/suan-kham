@@ -174,7 +174,7 @@ h2 canvas { width: 44px; height: 44px; flex: none; }
   .wander { padding: 4px; }
   .word-id .th { font-size: 56px; }
   .tree-stage { height: 62vh; min-height: 340px; }
-  .tree-stage.roots { height: 150vh; min-height: 900px; }
+  .tree-stage.roots { height: 125vh; min-height: 780px; }
   .tree-stage .badge { width: 84px; height: 84px; }
   .tree-stage .badge canvas { width: 84px; height: 84px; }
   .intro h1 { font-size: 32px; }

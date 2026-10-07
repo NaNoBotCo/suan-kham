@@ -1,0 +1,54 @@
+PLAY STORE LISTING — สวนคำ · The Word Garden (co.nanobot.suankham)
+
+App name (30 max): สวนคำ · The Word Garden
+Category: Books & Reference (Education also fits)
+Price: paid, amount yours
+Privacy policy URL: https://nanobotco.github.io/suan-kham/privacy.html
+Website: https://nanobotco.github.io/suan-kham/
+
+ENGLISH (default language: English, United States; add Thai as a translation)
+
+Short description (80 max):
+180 Thai words grown as fractal trees: senses, compounds, roots. Tap any leaf.
+
+Full description:
+The Word Garden grows 180 everyday Thai words as trees you can walk through.
+
+Each branch is one sense of the word, growing out of the sense it came from: หัว the head grows into หัว the leader, the bulb and the mind. Each branch ends in a fractal, splitting until there is one leaf for every compound word filed under that sense: 4,415 leaves in all. Tap a leaf to open the word, see how it is built (ลูก + ค้า = ลูกค้า, customer), read its literal meaning, and jump to its relatives.
+
+Under the ground are the roots: the forms each word comes from, oldest deepest, and its cousins in Lao, Northern Thai, Shan, Tai Lue, Ahom and other sister languages, written in their own scripts. Where the word belongs to a ThaiRoots family, a gold root carries the Pali or Sanskrit root and the other words grown from it.
+
+Weeds grow at the foot of some trees: 527 words that only look like compounds. เมตตา contains ตา only by spelling; it is Pali mettā, loving-kindness.
+
+Wander from tree to tree, browse by topic, by where a word came from, by how its senses grew, or through the net of words two trees share. Read the filer's notes on how each word's senses were divided. Play two games: pick the branch a compound grows on, and tell leaf from weed. Hear each word in Thai with your phone's voice.
+
+Every word is shown in Thai script with romanisation, Paiboon spelling and IPA, and glossed in Thai and English. The garden is inside the app and opens without a connection.
+
+Sources: the wichaa lexicon, with Thai definitions from the Royal Institute dictionary and Wiktionary as the lexicon records them, and the ThaiRoots inventory. Pictures drawn by the motdang doodler.
+
+THAI (ไทย)
+
+ชื่อแอป: สวนคำ · The Word Garden
+
+คำอธิบายสั้น (80 ตัวอักษร):
+คำไทย 180 คำ ปลูกเป็นต้นไม้ กิ่งคือความหมาย ใบคือคำประสม รากคือที่มา
+
+คำอธิบายเต็ม:
+สวนคำปลูกคำไทยที่ใช้กันทุกวัน 180 คำ ให้เป็นต้นไม้ที่เดินเข้าไปดูได้
+
+กิ่งแต่ละกิ่งคือความหมายหนึ่งของคำ งอกออกมาจากความหมายที่เป็นต้นทาง หัว ที่เป็นศีรษะ แตกกิ่งเป็น หัว ที่เป็นผู้นำ หัว ที่เป็นหัวพืช และ หัว ที่เป็นความคิด ปลายกิ่งแตกแขนงไปเรื่อย ๆ จนได้ใบหนึ่งใบต่อคำประสมหนึ่งคำ รวม 4,415 ใบ แตะใบไหนก็เปิดคำนั้น ดูว่าประกอบจากอะไร (ลูก + ค้า = ลูกค้า) ความหมายตามตัว และญาติของคำ
+
+ใต้ดินคือราก รากแก้วบอกว่าคำมาจากไหน ยิ่งลึกยิ่งเก่า รากแขนงคือคำเดียวกันในภาษาพี่น้อง ลาว คำเมือง ไทใหญ่ ไทลื้อ อาหม และอื่น ๆ เขียนด้วยอักษรของภาษานั้นเอง คำไหนอยู่ในตระกูล ThaiRoots จะมีรากสีทองบอกรากศัพท์บาลีหรือสันสกฤต และคำอื่นที่งอกจากรากเดียวกัน
+
+โคนต้นบางต้นมีวัชพืช คือคำ 527 คำที่หน้าตาเหมือนคำประสมแต่ไม่ใช่ เมตตา มี ตา อยู่แค่ในตัวสะกด ที่จริงมาจากบาลี เมตฺตา
+
+เดินเล่นจากต้นหนึ่งไปอีกต้น เลือกดูตามหมวด ตามที่มาของคำ ตามวิธีที่ความหมายงอก หรือตามตาข่ายคำที่สองต้นใช้ร่วมกัน อ่านบันทึกของผู้จัดว่าแบ่งความหมายของแต่ละคำอย่างไร เล่นเกมสองเกม เลือกกิ่งที่คำประสมงอกอยู่ และแยกใบออกจากวัชพืช ฟังเสียงคำภาษาไทยด้วยเสียงอ่านของโทรศัพท์
+
+ทุกคำมีอักษรไทย คำอ่านภาษาอังกฤษ ตัวสะกดแบบ Paiboon และสัทอักษร พร้อมความหมายภาษาไทยและอังกฤษ สวนทั้งหมดอยู่ในแอป เปิดได้โดยไม่ต้องต่อเน็ต
+
+ที่มา: คลังคำ wichaa ความหมายภาษาไทยจากพจนานุกรมราชบัณฑิตยสถานและวิกิพจนานุกรมตามที่คลังคำบันทึกไว้ และรายการรากศัพท์ ThaiRoots ภาพวาดโดยเครื่องวาดของ motdang
+
+GRAPHICS (in this folder)
+icon-512.png — app icon, 512×512
+feature-1024x500.png — feature graphic
+screenshots/ — six phone screenshots, 810×1440

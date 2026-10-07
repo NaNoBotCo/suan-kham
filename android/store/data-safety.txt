@@ -1,0 +1,19 @@
+PLAY DATA SAFETY AND CONTENT ANSWERS — what the app does, for filling in the Play Console forms
+
+What the app does with data, as built (version 1.0):
+- It keeps two things in the WebView's own storage on the phone: the trail of words opened and the game score. Uninstalling the app removes them.
+- It asks the phone's text-to-speech engine to read Thai words aloud when ฟัง is tapped.
+- It makes one kind of outside request: when the phone is online, it asks Google Fonts (fonts.googleapis.com, fonts.gstatic.com) for typefaces. Links to other websites open in the phone's browser.
+- Permission: INTERNET (for the typefaces).
+
+Data safety form:
+- Does your app collect or share any of the required user data types? No.
+- Is all of the user data collected by your app encrypted in transit? Not applicable (no data collected). The font requests use HTTPS.
+- Do you provide a way for users to request that their data is deleted? Not applicable; uninstalling removes the trail and score.
+
+App content:
+- Does your app contain ads? Answer: No (version 1.0 shows none).
+- App access: all functionality available without special access.
+- Content rating questionnaire: category Reference, News or Educational. It is a dictionary: some entries define sex-related and crude words (for example under กาม and ขี้) in dictionary terms. No violence, gambling, user interaction, location sharing or purchases.
+- Target audience: your call. Choosing 13+ keeps it out of the Designed for Families programme, which has extra rules; choosing under-13 groups opens that programme.
+- Government app, financial features, health: No.

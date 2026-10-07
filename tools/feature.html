@@ -1,0 +1,17 @@
+<!doctype html><meta charset=utf-8>
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@500;600&family=Sarabun:wght@400;600&family=Noto+Sans+Devanagari:wght@600&family=Noto+Sans+Lao:wght@600&family=Noto+Sans+Tai+Tham:wght@600&display=swap" rel="stylesheet">
+<body style="margin:0"><canvas id=c width=1024 height=500 style="width:1024px;height:500px"></canvas>
+<script src="../src/skyline.js"></script><script src="../src/tree.js"></script>
+<script>
+var cv=document.getElementById('c'),c=cv.getContext('2d');cv.width=2048;cv.height=1000;c.scale(2,2);
+Promise.all([document.fonts.load('600 80px Mitr'),document.fonts.load('600 40px Sarabun'),document.fonts.load('24px Sarabun'),document.fonts.load('600 16px "Noto Sans Devanagari"','धर्म'),document.fonts.load('600 16px "Noto Sans Tai Tham"','ᨵᩢ'),document.fonts.load('600 16px "Noto Sans Lao"','ທຳ')]).then(()=>fetch('../data/heads/tham.json')).then(r=>r.json()).then(function(h){
+  c.fillStyle='#f6f0e2';c.fillRect(0,0,1024,500);
+  c.save();c.beginPath();c.rect(520,0,504,500);c.clip();c.translate(520,0);MDTREE.draw(c,504,500,4200,h,{sky:true,roots:true});c.restore();
+  c.fillStyle='#9a2a1f';c.font='600 104px Mitr';c.fillText('สวนคำ',48,170);
+  c.fillStyle='#23180f';c.font='600 46px Sarabun';c.fillText('The Word Garden',52,232);
+  c.font='24px Sarabun';c.fillStyle='#5e4a38';
+  ['180 Thai words grown as fractal trees.','A branch is a sense, a leaf a compound,','the roots their cousins and ancestors.'].forEach((l,i)=>c.fillText(l,52,300+i*38));
+  c.font='500 34px Mitr';c.fillStyle='#2f7a46';c.fillText('ใบหนึ่ง = คำหนึ่ง',52,450);
+  document.title='ready';
+});
+</script>
