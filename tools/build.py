@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """src/ + data/ → docs/, the folder that gets published.   python3 tools/build.py"""
-import os, shutil, glob
+import os, shutil, glob, subprocess, sys
+
+# a script that fails to parse blanks the whole garden: refuse to build one
+for f in sorted(glob.glob(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src', '*.js'))):
+    r = subprocess.run(['node', '--check', f], capture_output=True, text=True)
+    if r.returncode:
+        sys.exit('build refused, %s does not parse:\n%s' % (os.path.basename(f), r.stderr[:600]))
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(HERE, 'docs')

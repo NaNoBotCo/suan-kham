@@ -11,3 +11,4 @@ android/*.jks
 android/signing.txt
 android/dist/
 .DS_Store
+android/tools/

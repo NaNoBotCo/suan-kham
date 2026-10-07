@@ -99,7 +99,7 @@ function step(href, label) {
 function drawFoot() {
   var t = trail().slice(-12);
   foot.innerHTML = (t.length ? '<div class="trail" aria-label="รอยเท้า trail">' + t.map(function (x) { return '<a href="' + x[0] + '">' + esc(x[1]) + '</a>'; }).join('') + '</div>' : '') +
-    '<p>' + IDX.counts.heads + ' คำ · ' + IDX.counts.senses + ' ความหมาย · ' + IDX.counts.compounds + ' คำประสม — from the wichaa lexicon (manuscript-wiki), its filing tables and the compound filer\'s notebook. Thai glosses: the Royal Institute dictionary and Wiktionary, as the lexicon records them. English the lexicon lacked was written for this garden: 4,584 glosses by DeepSeek V4 Flash, 135 by Claude. Roots: the lexicon's etymologies and the ThaiRoots inventory. Pictures: the motdang doodler.</p>';
+    '<p>' + IDX.counts.heads + ' คำ · ' + IDX.counts.senses + ' ความหมาย · ' + IDX.counts.compounds + ' คำประสม — from the wichaa lexicon (manuscript-wiki), its filing tables and the compound filer\'s notebook. Thai glosses: the Royal Institute dictionary and Wiktionary, as the lexicon records them. English the lexicon lacked was written for this garden: 4,584 glosses by DeepSeek V4 Flash, 135 by Claude. Roots: the lexicon\'s etymologies and the ThaiRoots inventory. Pictures: the motdang doodler.</p>';
 }
 
 /* ---------------------------------------------------------------- search */
@@ -137,10 +137,10 @@ document.addEventListener('click', function (e) { if (!e.target.closest('.find')
 
 /* ---------------------------------------------------------------- speech: the phone's own Thai voice, where it has one */
 function thaiVoice() { if (!window.speechSynthesis) return null; var v = speechSynthesis.getVoices().filter(function (x) { return /^th/i.test(x.lang); }); return v[0] || null; }
-if (window.speechSynthesis) speechSynthesis.onvoiceschanged = function () { document.querySelectorAll('.speak').forEach(function (b) { b.hidden = !thaiVoice(); }); };
-function speak(th) { var v = thaiVoice(); if (!v) return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(th); u.voice = v; u.lang = v.lang; u.rate = 0.8; speechSynthesis.speak(u); }
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = function () { document.querySelectorAll('.speak[data-say]').forEach(function (b) { b.hidden = !(window.SKAndroid || thaiVoice()); }); };
+function speak(th) { if (window.SKAndroid) { try { SKAndroid.speak(th); } catch (e) { } return; } var v = thaiVoice(); if (!v) return; speechSynthesis.cancel(); var u = new SpeechSynthesisUtterance(th); u.voice = v; u.lang = v.lang; u.rate = 0.8; speechSynthesis.speak(u); }
 document.addEventListener('click', function (e) { var b = e.target.closest('.speak'); if (b) speak(b.getAttribute('data-say')); });
-function speakBtn(th) { return '<button class="speak" data-say="' + esc(th) + '"' + (thaiVoice() ? '' : ' hidden') + '><canvas data-mark="x:speak"></canvas>ฟัง · hear it</button>'; }
+function speakBtn(th) { return '<button class="speak" data-say="' + esc(th) + '"' + (window.SKAndroid || thaiVoice() ? '' : ' hidden') + '><canvas data-mark="x:speak"></canvas>ฟัง · hear it</button>'; }
 
 /* ---------------------------------------------------------------- wander */
 var here = { kind: 'home' };
