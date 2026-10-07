@@ -148,7 +148,7 @@ def main():
                 for x in c.get('cross_listed') or []:
                     if x in th2slug and th2slug[x] != s:
                         edges[tuple(sorted((s, th2slug[x])))].add(c['th'])
-                compounds_flat.append([c['th'], c.get('rtgs', ''), cs[-1]['en'], s, n, c.get('pattern') or '', c.get('frame') or ''])
+                compounds_flat.append([c['th'], c.get('rtgs', ''), cs[-1]['en'], s, n, c.get('pattern') or '', c.get('frame') or '', '+'.join(parts), c.get('lit', '')])
             nC += len(cs)
             g = sn.get('gloss') or {}
             senses.append({
