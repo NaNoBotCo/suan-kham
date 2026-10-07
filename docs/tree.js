@@ -89,7 +89,7 @@ function sky(c, W, H, t) {
 /* the roots: below the ground line, a cut through the soil. The taproot carries the forms the word
    descends or is borrowed from, oldest deepest; side roots carry its cognates in the sister
    languages; a gold knot carries its ThaiRoots family, whose rootlets are the sister words. */
-var SCRIPT = '"Sarabun","Noto Sans Thai","Noto Sans Lao","Noto Sans Tai Tham","Noto Sans Tai Viet","Noto Sans New Tai Lue","Noto Sans Myanmar","Noto Sans Tai Le","Noto Sans Ahom","Noto Sans Devanagari","Noto Sans Khmer","Noto Sans SC",sans-serif';
+var SCRIPT = '"Sarabun","Noto Sans","Noto Sans Thai","Noto Sans Lao","Noto Sans Tai Tham","Noto Sans Tai Viet","Noto Sans New Tai Lue","Noto Sans Myanmar","Noto Sans Tai Le","Noto Sans Ahom","Noto Sans Devanagari","Noto Sans Khmer","Noto Sans SC",sans-serif';
 function tag(c, x, y, big, small, col, ink, fs, hits, hit, glow) {
   c.font = '600 ' + fs + 'px ' + SCRIPT; var w1 = c.measureText(big).width;
   c.font = (fs * 0.62 | 0) + 'px "Sarabun",sans-serif'; var w2 = small ? c.measureText(small).width : 0;

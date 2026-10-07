@@ -63,8 +63,8 @@ function md(text) {
 }
 function section(th, en, mark, n) { return '<h2>' + (mark ? '<canvas data-mark="' + mark + '"></canvas>' : '') + '<span>' + th + (en ? ' <small>' + en + (n != null ? ' · ' + n : '') + '</small>' : '') + '</span></h2>'; }
 /* a folded section: the heading says what is inside and how many */
-function fold(th, en, n, body, open, mark) {
-  return '<details class="fold"' + (open ? ' open' : '') + '><summary>' + (mark ? '<canvas data-mark="' + mark + '"></canvas>' : '') + '<span><b>' + th + '</b> <small>' + en + '</small></span>' + (n != null ? '<em>' + n + '</em>' : '') + '</summary><div class="fold-in">' + body + '</div></details>';
+function fold(th, en, n, body, open, mark, id) {
+  return '<details class="fold"' + (id ? ' id="' + id + '"' : '') + (open ? ' open' : '') + '><summary>' + (mark ? '<canvas data-mark="' + mark + '"></canvas>' : '') + '<span><b>' + th + '</b> <small>' + en + '</small></span>' + (n != null ? '<em>' + n + '</em>' : '') + '</summary><div class="fold-in">' + body + '</div></details>';
 }
 
 /* ---------------------------------------------------------------- the pictures: one loop draws what is on screen */
@@ -203,9 +203,39 @@ document.getElementById('wander').addEventListener('click', function () {
   }
   location.hash = go || '#/w/' + pick(IDX.heads).s;
 });
-var depth = 0;
-document.getElementById('back').addEventListener('click', function () { if (depth > 0) history.back(); else location.hash = '#/'; });
 document.getElementById('help').addEventListener('click', function () { guide(); });
+
+/* ---------------------------------------------------------------- the path bar: where you are, how you got here, the way back */
+var crumbsEl = document.getElementById('crumbs'), hintEl = document.getElementById('hintbar'), HOME = ['#/', 'สวน · home'];
+var PATH = (function () { try { return JSON.parse(sessionStorage.getItem('suankham:path')) || [HOME]; } catch (e) { return [HOME]; } })();
+function savePath() { try { sessionStorage.setItem('suankham:path', JSON.stringify(PATH)); } catch (e) { } }
+function pathVisit(hash, label) {
+  if (!hash || hash === '#' || hash === '#/') PATH = [HOME];
+  else {
+    var i = -1; PATH.forEach(function (p, j) { if (p[0] === hash) i = j; });
+    if (i >= 0) PATH = PATH.slice(0, i + 1); else PATH.push([hash, label || '…']);
+    if (PATH[0][0] !== '#/') PATH.unshift(HOME);
+    if (PATH.length > 12) PATH = [HOME].concat(PATH.slice(-11));
+  }
+  savePath(); drawCrumbs();
+}
+function crumbLabel(label) { if (PATH.length) { PATH[PATH.length - 1][1] = label; savePath(); drawCrumbs(); } }
+function drawCrumbs() {
+  if (PATH.length <= 1) { crumbsEl.hidden = true; crumbsEl.innerHTML = ''; return; }
+  var prev = PATH[PATH.length - 2], show = PATH.length > 5 ? [PATH[0], null].concat(PATH.slice(-3)) : PATH;
+  crumbsEl.innerHTML = '<a class="backto" href="' + prev[0] + '"><span aria-hidden="true">‹</span> กลับไป · back to <b>' + esc(prev[1]) + '</b></a>' +
+    '<ol>' + show.map(function (p, i) {
+      if (!p) return '<li class="gap" aria-hidden="true">…</li>';
+      var last = i === show.length - 1;
+      return '<li>' + (last ? '<b aria-current="page">' + esc(p[1]) + '</b>' : '<a href="' + p[0] + '">' + esc(p[1]) + '</a>') + '</li>';
+    }).join('') + '</ol>';
+  crumbsEl.hidden = false;
+}
+function hint(text) { if (!text) { hintEl.hidden = true; return; } hintEl.innerHTML = '<span class="i" aria-hidden="true">i</span><span>' + text + '</span>'; hintEl.hidden = false; }
+var LABEL = {
+  explore: 'สำรวจ · explore', all: 'คำทั้งหมด · all words', net: 'ตาข่าย · net', play: 'เล่น · play', trail: 'ประวัติ · history', beds: 'หมวด · topics',
+  seeds: 'ที่มา · origins', grafts: 'ความหมายงอก · how meanings grow', shapes: 'รูปคำ · word shapes', weeds: 'คำหน้าเหมือน · lookalikes', notes: 'สมุด · notebook'
+};
 
 /* ---------------------------------------------------------------- pages */
 var TABOF = { '': 'home', explore: 'explore', all: 'explore', beds: 'explore', bed: 'explore', seeds: 'explore', seed: 'explore', grafts: 'explore', via: 'explore', shapes: 'explore', shape: 'explore', weeds: 'explore', notes: 'explore', net: 'net', play: 'play', trail: 'trail' };
@@ -238,7 +268,7 @@ function pageHome() {
     }).join('') + '</div>' +
     section('ทางเข้าอื่น', 'more ways in', 'x:search') + exploreCards()
   );
-  setTab('home');
+  setTab('home'); hint('Type a word in the box, or tap one of the pictures. Once you move on, a path bar under the search shows where you are and leads back.');
   attachSearch(document.getElementById('q2'), document.getElementById('hits2'));
   var cv = document.getElementById('today');
   pic(cv, function (c, W, H, t) { return MDTREE.draw(c, W, H, t, h, { sky: true, sign: false }); });
@@ -260,7 +290,7 @@ function exploreCards() {
 }
 function pageExplore() {
   put(section('สำรวจ', 'explore the garden', 'x:search') + exploreCards());
-  setTab('explore');
+  setTab('explore'); hint('Pick a way to browse. The path bar above leads back.');
 }
 
 /* ---------------------------------------------------------------- a head: the tree, its meanings, its roots */
@@ -286,27 +316,44 @@ function pageHead(s, hiN, leafTh) {
             h.d.slice(0, 2).map(function (d) { return '<a class="pill" href="#/bed/' + enc(d) + '"><canvas data-mark="' + d + '"></canvas>' + esc(dom(d).th) + '</a>'; }).join('') + '</div>' +
         '</div>' +
       '</section>' +
-      '<p class="summary">' + esc(h.th) + (h.en ? ' (' + esc(h.en.split(',')[0]) + ')' : '') + ' has <b>' + h.senses.length + (h.senses.length === 1 ? ' meaning' : ' meanings') + '</b>, and <b>' + x.nc + (x.nc === 1 ? ' word is' : ' words are') + '</b> built from it.' + (h.look.length ? ' ' + h.look.length + (h.look.length === 1 ? ' word looks' : ' words look') + ' like it and ' + (h.look.length === 1 ? 'is' : 'are') + ' not.' : '') + '</p>' +
-      '<section class="stage-wrap">' +
+      '<p class="summary">' + esc(h.th) + (h.en ? ' (' + esc(h.en.split(',')[0]) + ')' : '') + ' has <b>' + h.senses.length + (h.senses.length === 1 ? ' meaning' : ' meanings') + '</b>, and <b>' + x.nc + (x.nc === 1 ? ' word is' : ' words are') + '</b> built from it.' + (h.look.length ? ' ' + h.look.length + (h.look.length === 1 ? ' word looks' : ' words look') + ' like it and ' + (h.look.length === 1 ? 'is' : 'are') + ' not.' : '') + ' ' + esc(originLine(h)) + '</p>' +
+      '<nav class="jump" aria-label="ไปที่ · jump to"><span>ไปที่ · jump to</span>' +
+        '<button data-to="sec-pic">ภาพ · picture</button><button data-to="sec-origin">ที่มา · origin</button><button data-to="sec-words">คำที่สร้าง · words built <em>' + x.nc + '</em></button>' +
+        (h.look.length ? '<button data-to="sec-look">หน้าเหมือน · lookalikes <em>' + h.look.length + '</em></button>' : '') +
+        (h.rule ? '<button data-to="sec-rule">วิธีแบ่ง · how it was divided</button>' : '') +
+        (h.notes.length ? '<button data-to="sec-notes">บันทึก · notes</button>' : '') + '</nav>' +
+      '<section class="stage-wrap" id="sec-pic">' +
         (hasRoots ? '<div class="seg" role="tablist" aria-label="มุมมอง · view"><button role="tab" aria-selected="true" data-v="tree">ต้นไม้ · the tree</button><button role="tab" aria-selected="false" data-v="roots">ราก · the roots</button></div>' : '') +
         '<div class="tree-stage"><canvas class="tree" id="tree" aria-label="ต้นไม้ของ ' + esc(h.th) + ': ' + h.senses.length + ' branches, ' + x.nc + ' leaves"></canvas>' +
           '<div class="hint" id="hint">แตะตัวเลขเพื่ออ่านความหมาย · tap a number to read that meaning</div></div>' +
         '<p class="key"><span><i class="kn">1</i> a meaning</span><span><i class="kl"></i> a word built on it</span>' + (h.look.length ? '<span><i class="kw"></i> a lookalike</span>' : '') + '</p><div class="legend">' + Object.keys(viaUsed).map(function (k) { return '<span><i style="background:' + VIA[k].col + '"></i>' + VIA[k].th + ' · ' + VIA_SAY[k] + '</span>'; }).join('') + '</div>' +
       '</section>' +
+      '<section id="sec-origin" class="origin">' + section('ที่มา', 'where ' + esc(h.th) + ' comes from', 'o:' + h.o) +
+        '<p class="lede">' + (esc(originLine(h)) || 'The lexicon records no etymology for ' + esc(h.th) + '.') + '</p>' +
+        (hasRoots ? '<p><button class="btn ghost" id="showroots">ดูรากในภาพ · show the roots in the picture</button></p>' + rootsHtml(h) : '') +
+        (h.ety ? '<details class="ety"><summary>ข้อความเต็ม · the full etymology, as the lexicon records it</summary><p>' + linkifyThai(h.ety) + '</p></details>' : '') +
+      '</section>' +
+      '<div id="sec-words"></div>' +
       section('คำที่สร้างจาก ' + esc(h.th), 'words built from ' + esc(h.th), 'd:plant', x.nc) +
       '<div class="seg wgroup" role="tablist" aria-label="จัดกลุ่ม · group the words">' +
         '<button role="tab" data-g="meaning">ตามความหมาย · by meaning</button><button role="tab" data-g="place">' + esc(h.th) + ' หน้า/หลัง · first or last</button><button role="tab" data-g="az">ก–ฮ · A–Z</button></div>' +
       '<div id="wlist"></div>' +
-      (hasRoots ? fold('ราก', 'where it comes from and its cousins', null, rootsHtml(h), false, 'd:plant') : '') +
-      (h.rule ? fold('วิธีแบ่ง', 'how the filer divided its meanings', null, '<p class="rule">' + rich(h.rule) + '</p>' + (h.filed ? '<p class="muted">' + h.filed + '</p>' : ''), false, 'x:notebook') : '') +
-      (h.look.length ? fold('คำหน้าเหมือน', 'lookalikes: they look built from ' + esc(h.th) + ' and are not', h.look.length, '<div class="grid">' + h.look.map(function (l) { return '<a class="card weed" href="#/k/' + enc(l.th) + '"><b>' + esc(l.th) + '</b> <span class="muted">' + esc(l.r) + '</span><div class="muted">' + (USE[l.use] || [l.use, l.use]).join(' · ') + '</div><div>' + esc(l.note) + '</div></a>'; }).join('') + '</div>', false, 'x:mask') : '') +
+      (h.rule ? fold('วิธีแบ่ง', 'how the filer divided its meanings', null, '<p class="rule">' + rich(h.rule) + '</p>' + (h.filed ? '<p class="muted">' + h.filed + '</p>' : ''), false, 'x:notebook', 'sec-rule') : '') +
+      (h.look.length ? fold('คำหน้าเหมือน', 'lookalikes: they look built from ' + esc(h.th) + ' and are not', h.look.length, '<div class="grid">' + h.look.map(function (l) { return '<a class="card weed" href="#/k/' + enc(l.th) + '"><b>' + esc(l.th) + '</b> <span class="muted">' + esc(l.r) + '</span><div class="muted">' + (USE[l.use] || [l.use, l.use]).join(' · ') + '</div><div>' + esc(l.note) + '</div></a>'; }).join('') + '</div>', false, 'x:mask', 'sec-look') : '') +
       (grafts.length || inside.length ? fold('คำหลักที่เกี่ยวข้อง', 'other head words sharing a compound with ' + esc(h.th), grafts.length + inside.length,
         (grafts.length ? '<div class="chips">' + grafts.map(function (e) { var o = e[0] === s ? e[1] : e[0]; return '<a class="chip" href="#/w/' + o + '"><b>' + esc(BY[o].th) + '</b><i>' + esc(BY[o].en) + '</i><span>' + e[3].map(esc).join(' · ') + '</span></a>'; }).join('') + '</div>' : '') +
         (inside.length ? '<h3>' + esc(h.th) + ' inside words filed under other head words</h3>' + crows(inside.slice(0, 80).map(function (i) { return i[0]; }).sort(thCmp).map(function (t) { return crowT(t, h.th); }).join('')) : ''), false, 'x:net') : '') +
-      (h.notes.length ? fold('สมุด', 'the filer\'s notes on ' + esc(h.th), h.notes.length, '<div class="notes">' + h.notes.map(function (n) { return '<div class="note"><div class="d">' + esc(n.date) + (n.h3 ? ' · ' + esc(n.h3) : '') + '</div>' + md(n.text) + '</div>'; }).join('') + '</div>', false, 'x:notebook') : '') +
+      (h.notes.length ? fold('สมุด', 'the filer\'s notes on ' + esc(h.th), h.notes.length, '<div class="notes">' + h.notes.map(function (n) { return '<div class="note"><div class="d">' + esc(n.date) + (n.h3 ? ' · ' + esc(n.h3) : '') + '</div>' + md(n.text) + '</div>'; }).join('') + '</div>', false, 'x:notebook', 'sec-notes') : '') +
       (h.left.length ? fold('เมล็ดที่ยังไม่ปลูก', 'words no meaning of ' + esc(h.th) + ' fits yet', h.left.length, '<div class="chips">' + h.left.map(function (l) { return '<span class="chip sm"><b>' + esc(l.th) + '</b><i>' + esc(l.r) + '</i><span>' + esc(l.gth.slice(0, 60)) + '</span></span>'; }).join('') + '</div>', false, 'd:plant') : '')
     );
     setTab('');
+    crumbLabel(h.th + (h.en ? ' · ' + h.en.split(',')[0] : '') + (hiN ? ' · meaning ' + hiN : ''));
+    hint('The word ' + esc(h.th) + '. Use <b>ไปที่ · jump to</b> to reach its picture, its origin or the words built from it. Tap a number on the picture to read that meaning. <b>กลับไป · back</b> above returns you to the page you came from.');
+    main.querySelectorAll('.jump [data-to]').forEach(function (b) { b.addEventListener('click', function () {
+      var el = document.getElementById(b.getAttribute('data-to')); if (!el) return;
+      if (el.tagName === 'DETAILS') el.open = true;
+      el.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+    }); });
     restoreScroll();
     var cv = document.getElementById('tree'), view = 'tree', lit = hiN != null ? +hiN : null, leaf = leafTh || null;
     pic(cv, function (c, W, H, t) {
@@ -327,6 +374,8 @@ function pageHead(s, hiN, leafTh) {
         cv._dirty = 1;
       });
     });
+    var sr = document.getElementById('showroots');
+    if (sr) sr.addEventListener('click', function () { var b = main.querySelector('.seg button[data-v=roots]'); if (b) b.click(); document.getElementById('sec-pic').scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' }); });
     function openSense(n, th, fromList) {
       if (fromList) { var sw = main.querySelector('.stage-wrap'); if (sw) sw.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' }); }
       lit = n; leaf = th || null; cv._dirty = 1; senseSheet(h, n, th, function (n2, th2) { lit = n2; leaf = th2; cv._dirty = 1; }); }
@@ -408,6 +457,16 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if
 (function () { var y0 = null; sheet.addEventListener('touchstart', function (e) { y0 = sheet.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
   sheet.addEventListener('touchend', function (e) { if (y0 != null && e.changedTouches[0].clientY - y0 > 90) closeSheet(); y0 = null; }, { passive: true }); })();
 
+function originLine(h) {
+  var R = h.roots || {}, f = (R.from || [])[0], tr = (R.tr || [])[0], cog = (R.cog || []).length, out = '';
+  if (f && f[5] === 'loan') out = 'It is borrowed from ' + (f[1] || f[0]) + ' ' + f[2] + '.';
+  else if (f) out = 'It is an inherited Tai word, from ' + (f[1] || f[0]) + ' ' + f[2] + '.';
+  else if (h.o === 'tai') out = 'It is an inherited Tai word.';
+  else if (ORIGIN[h.o] && h.o !== 'unknown' && h.o !== 'other') out = 'It comes from ' + ORIGIN[h.o][1] + '.';
+  if (cog) out += ' The same word is found in ' + cog + ' sister languages.';
+  if (tr) out += ' ThaiRoots files it under ' + tr.root + (tr.gloss ? ' (' + tr.gloss + ')' : '') + '.';
+  return out;
+}
 function rootsHave(h) { var R = h.roots || {}; return !!((R.from || []).length || (R.cog || []).length || (R.tr || []).length); }
 function rootsHtml(h) {
   if (!rootsHave(h)) return '';
@@ -443,7 +502,8 @@ function pageWord(th) {
     if (!c) h.look.forEach(function (l) { if (l.th === th) look = l; });
     here = { kind: 'word', w: th, parts: c ? c.parts : [] };
     if (look) {
-      step('#/k/' + enc(th), th, (USE[look.use] || ['', ''])[1]);
+      step('#/k/' + enc(th), th, (USE[look.use] || ['', ''])[1]); crumbLabel(th + ' · lookalike');
+      hint(esc(th) + ' only looks like it contains ' + esc(h.th) + '. The box below says what it is.');
       put('<section class="word-head card"><div class="wh-pic"><canvas data-mark="x:mask"></canvas></div><div class="wh-id"><h1 class="th">' + esc(th) + '</h1><div class="say"><span class="rtgs">' + esc(look.r) + '</span></div>' + speakBtn(th) + '</div></section>' +
         '<div class="card verdict"><b>คำหน้าเหมือน · a lookalike</b><p>' + esc(th) + ' looks like a compound of ' + hlink(h.s) + ' and is not. ' + (USE[look.use] ? USE[look.use].join(' · ') + '.' : '') + '</p><p>' + linkifyThai(look.note) + '</p>' + (look.gth ? '<p class="muted">' + esc(look.gth) + '</p>' : '') +
         '<a class="btn" href="#/w/' + h.s + '">ดูต้น ' + esc(h.th) + ' · see the ' + esc(h.th) + ' tree ›</a></div>');
@@ -451,6 +511,7 @@ function pageWord(th) {
       return;
     }
     step('#/k/' + enc(th), th, c.en);
+    crumbLabel(th + (c.en ? ' · ' + c.en.split(/[;,]/)[0] : ''));
     var others = (c.parts || []).filter(function (p) { return p !== h.th; });
     var kin = [];
     others.forEach(function (p) { ((IDX.words[p] || {}).i || []).forEach(function (i) { if (i[0] !== th) kin.push(i); }); });
@@ -484,6 +545,7 @@ function pageWord(th) {
       (sibs.length ? fold('คำอื่นในความหมายเดียวกัน', 'other words built on ' + esc(h.th) + ', meaning ' + sn.n + (sn.en ? ' (' + esc(sn.en) + ')' : ''), sibs.length, crows(sibs.slice().sort(function (a, b) { return thCmp(a.th, b.th); }).map(function (x) { return crow(x.th, x.r, x.en, x.parts, x.lit, h.th); }).join('')), true, 'd:plant') : '')
     );
     restoreScroll();
+    hint('The compound ' + esc(th) + ', built from ' + c.parts.map(esc).join(' + ') + '. Tap a part to open it, or <b>' + esc(h.th) + '</b> to see every word built from it.');
     var cv = document.getElementById('ktree');
     pic(cv, function (cc, W, H, t) { return MDTREE.draw(cc, W, H, t, h, { sky: true, hi: sn.n, leaf: th, sign: true }); });
   }).catch(pageMissing);
@@ -514,7 +576,7 @@ function pageNet() {
     '<div class="net-tools" id="nt"></div><div class="net-stage" id="ns"><canvas id="net" aria-label="the net of trees"></canvas>' +
     '<div class="net-zoom"><button data-z="1.25" aria-label="ซูมเข้า · zoom in">+</button><button data-z="0.8" aria-label="ซูมออก · zoom out">−</button><button data-z="0" aria-label="ดูทั้งหมด · fit">⤢</button></div>' +
     '<div class="net-card" id="nc">แตะจุดเพื่อดูคำที่ใช้ร่วมกัน · tap a dot to see which head words share compounds with it. Drag to move, pinch to zoom.</div></div>');
-  setTab('net');
+  setTab('net'); hint('Each dot is a head word. Tap a dot to see the head words it shares compounds with, then <b>เปิด · open</b> to go to it.');
   var N = netLayout(), cv = document.getElementById('net'), view = { x: 0, y: 0, k: 1.3 }, sel = null, domList = Object.keys(IDX.domains), dsel = null;
   var card = document.getElementById('nc'), tools = document.getElementById('nt');
   tools.innerHTML = '<button data-d="" class="on">ทั้งหมด · all</button>' + domList.filter(function (d) { return IDX.heads.some(function (h) { return h.d[0] === d; }); }).map(function (d) { return '<button data-d="' + d + '">' + esc(dom(d).th) + '</button>'; }).join('');
@@ -567,7 +629,7 @@ function pageNet() {
 }
 
 /* ---------------------------------------------------------------- browsing pages */
-var SORTS = [['nc', 'คำที่สร้าง · most words built'], ['ns', 'ความหมาย · most meanings'], ['th', 'ก–ฮ · Thai order'], ['en', 'A–Z · English'], ['nl', 'หน้าเหมือน · most lookalikes']];
+var SORTS = [['nc', 'คำที่สร้าง · most words built'], ['ns', 'ความหมาย · most meanings'], ['th', 'ก–ฮ · Thai alphabetical'], ['en', 'A–Z · English'], ['nl', 'หน้าเหมือน · most lookalikes']];
 function sortHeads(hs, k) {
   return hs.slice().sort(function (x, y) { return k === 'th' ? thCmp(x.th, y.th) : k === 'en' ? x.en.toLowerCase().localeCompare(y.en.toLowerCase()) : (y[k] - x[k]) || thCmp(x.th, y.th); });
 }
@@ -585,7 +647,7 @@ function sortable(id, hs, render) {
 }
 function pageAll() {
   put(crumb('#/explore', 'สำรวจ', 'explore') + section('คำทั้งหมด', 'all ' + IDX.heads.length + ' head words', 'x:garden') + sortBar('allt') + '<div id="allt"></div>');
-  setTab('explore');
+  setTab('explore'); hint('Tap a sort button or a column heading to change the order. Tap a word to open its page; its origin is there under <b>ที่มา · origin</b>.');
   sortable('allt', IDX.heads, function (a, k) {
     function th(key, t, e) { return '<th' + (key ? ' data-k="' + key + '" aria-sort="' + (k === key ? (key === 'th' || key === 'en' ? 'ascending' : 'descending') : 'none') + '" class="sortable' + (k === key ? ' on' : '') + '"' : '') + '>' + t + '<small>' + e + '</small></th>'; }
     return '<div class="tablewrap"><table class="wtable"><thead><tr>' + th('th', 'คำ', 'word') + th('en', 'ความหมายหลัก', 'English') + th('ns', 'ความหมาย', 'meanings') + th('nc', 'คำที่สร้าง', 'words built') + th('nl', 'หน้าเหมือน', 'lookalikes') + th('', 'ที่มา', 'origin') + '</tr></thead><tbody>' +
@@ -599,20 +661,20 @@ function treeGrid(hs, sub) {
     return '<a class="tile" href="#/w/' + h.s + '"><canvas data-tree="' + h.s + '"></canvas><div class="cap"><b>' + esc(h.th) + '</b><span>' + esc(h.r) + ' · ' + esc(h.en) + '</span><small>' + h.ns + ' meanings · ' + h.nc + ' compounds</small>' + (sub ? '<div class="muted sub">' + sub(h) + '</div>' : '') + '</div></a>';
   }).join('') + '</div>';
 }
-function crumb(href, th, en) { return '<p class="crumbs top"><a href="' + href + '">' + th + ' <small>' + en + '</small></a><span>›</span></p>'; }
+function crumb() { return ''; }   /* the path bar above every page does this now */
 function pageBeds() {
   var cnt = {}; IDX.heads.forEach(function (h) { h.d.forEach(function (d) { cnt[d] = (cnt[d] || 0) + 1; }); });
   put(crumb('#/explore', 'สำรวจ', 'explore') + section('หมวด', 'topics; a tree stands in every topic its meanings reach', 'x:garden') +
     '<div class="topics">' + Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (d) {
       return '<a class="topic" href="#/bed/' + enc(d) + '"><canvas data-mark="' + d + '"></canvas><b>' + esc(dom(d).th) + '</b><span>' + esc(dom(d).en) + '</span><em>' + cnt[d] + '</em></a>';
     }).join('') + '</div>');
-  setTab('explore');
+  setTab('explore'); hint('Each tile is a topic. Tap one to see its words.');
 }
 function pageBed(d) {
   var hs = IDX.heads.filter(function (h) { return h.d.indexOf(d) >= 0; }).sort(function (a, b) { return b.nc - a.nc; });
   put(crumb('#/beds', 'หมวด', 'topics') + section(esc(dom(d).th), esc(dom(d).en), d, hs.length + ' words') + sortBar('tg') + '<div id="tg"></div>');
   sortable('tg', hs, function (a) { return treeGrid(a); });
-  setTab('explore'); restoreScroll();
+  setTab('explore'); hint('Each card is one head word. Sort with the buttons; tap a card to open the word.'); restoreScroll();
 }
 function pageSeeds() {
   var cnt = {}; IDX.heads.forEach(function (h) { cnt[h.o] = (cnt[h.o] || 0) + 1; });
@@ -620,13 +682,13 @@ function pageSeeds() {
     '<div class="grid">' + Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (o) {
       return '<a class="tile" href="#/seed/' + o + '"><canvas data-mark="o:' + o + '"></canvas><div class="cap"><b>' + ORIGIN[o][0] + '</b><span>' + ORIGIN[o][1] + ' · ' + cnt[o] + ' words</span></div></a>';
     }).join('') + '</div>');
-  setTab('explore');
+  setTab('explore'); hint('Words grouped by where they came from. Tap a group to see its words.');
 }
 function pageSeed(o) {
   var hs = IDX.heads.filter(function (h) { return h.o === o; }).sort(function (a, b) { return b.nc - a.nc; });
   put(crumb('#/seeds', 'ที่มา', 'origins') + section(ORIGIN[o] ? ORIGIN[o][0] : o, ORIGIN[o] ? ORIGIN[o][1] : '', 'o:' + o, hs.length + ' words') + sortBar('tg') + '<div id="tg"></div>');
   sortable('tg', hs, function (a) { return treeGrid(a, function (h) { return esc((h.ety || '').slice(0, 90)); }); });
-  setTab('explore'); restoreScroll();
+  setTab('explore'); hint('Each card is one head word from this source. Sort with the buttons; tap a card to open the word and read its origin.'); restoreScroll();
 }
 function pageGrafts() {
   var cnt = {}; IDX.heads.forEach(function (h) { h.sen.forEach(function (r) { if (r[2] != null && r[3]) cnt[r[3]] = (cnt[r[3]] || 0) + 1; }); });
@@ -634,7 +696,7 @@ function pageGrafts() {
     '<div class="grid">' + Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (v) {
       return '<a class="tile" href="#/via/' + v + '"><canvas data-mark="v:' + v + '"></canvas><div class="cap"><b style="color:' + viaCol(v) + '">' + VIA[v].th + ' · ' + VIA[v].en + '</b><span>' + VIA_SAY[v] + ' · ' + cnt[v] + ' meanings</span></div></a>';
     }).join('') + '</div>');
-  setTab('explore');
+  setTab('explore'); hint('How one meaning of a word grows out of another. Tap a kind to see examples.');
 }
 function pageVia(v) {
   var rows = [];
@@ -645,7 +707,7 @@ function pageVia(v) {
       return '<a class="card via-card" style="--c:' + viaCol(v) + '" href="#/w/' + x[0].s + '/' + x[2][0] + '"><b class="vt">' + esc(x[0].th) + '</b> <span class="muted">' + esc(x[0].r) + '</span>' +
         '<div class="vflow"><span>' + esc(x[1][1] || '—') + '</span><em>→</em><span>' + esc(x[2][1] || '—') + '</span></div><div class="muted">' + esc(x[2][5] || '') + '</div></a>';
     }).join('') + '</div>');
-  setTab('explore'); restoreScroll();
+  setTab('explore'); hint('Each card shows a word, the meaning it started with, and the meaning that grew from it. Tap a card to open that meaning.'); restoreScroll();
 }
 function pageShapes() {
   var cnt = {}; IDX.compounds.forEach(function (c) { if (c[5]) cnt[c[5]] = (cnt[c[5]] || 0) + 1; });
@@ -654,14 +716,14 @@ function pageShapes() {
       var ex = IDX.compounds.filter(function (c) { return c[5] === p; }).slice(0, 4).map(function (c) { return c[0]; }).join(' · ');
       return '<a class="card shape" href="#/shape/' + enc(p) + '"><b>' + esc(p.split('+').map(function (x) { return POS[x] || x; }).join(' + ')) + '</b> <span class="muted">' + cnt[p] + '</span><div class="ex">' + esc(ex) + '</div></a>';
     }).join('') + '</div>');
-  setTab('explore');
+  setTab('explore'); hint('Compounds grouped by the kinds of words they join. Tap a shape to see its compounds.');
 }
 function pageShape(p) {
   var cs = IDX.compounds.filter(function (c) { return c[5] === p; }), byF = {};
   cs.forEach(function (c) { (byF[c[6] || ''] = byF[c[6] || ''] || []).push(c); });
   put(crumb('#/shapes', 'รูปคำ', 'word shapes') + section(esc(p.split('+').map(function (x) { return POS[x] || x; }).join(' + ')), esc(p), 'd:speech', cs.length) +
     Object.keys(byF).map(function (f) { return fold(FRAME[f] ? FRAME[f][0] : 'อื่น ๆ', FRAME[f] ? 'names ' + FRAME[f][1] : 'other', byF[f].length, crows(byF[f].slice().sort(function (a, b) { return thCmp(a[0], b[0]); }).slice(0, 400).map(function (c) { return crowC(c); }).join('')), Object.keys(byF).length < 3); }).join(''));
-  setTab('explore'); restoreScroll();
+  setTab('explore'); hint('Each row shows a compound, the parts it is built from and what it means. Tap a row to open it.'); restoreScroll();
 }
 function pageWeeds() {
   var by = {}; IDX.look.forEach(function (l) { (by[l[2]] = by[l[2]] || []).push(l); });
@@ -669,7 +731,7 @@ function pageWeeds() {
   put(crumb('#/explore', 'สำรวจ', 'explore') + section('คำหน้าเหมือน', 'lookalikes: words that look built from a head word and are not', 'x:mask', IDX.look.length) +
     '<p class="lede">ตา sits inside เมตตา only by spelling: เมตตา is Pali mettā, loving-kindness. The filer pulled each of these out and wrote down why.</p>' +
     ks.map(function (s) { return fold(esc(BY[s].th), esc(BY[s].r) + ' · ' + esc(BY[s].en), by[s].length, '<div class="chips">' + by[s].map(function (l) { return '<a class="chip sm" href="#/k/' + enc(l[0]) + '"><b>' + esc(l[0]) + '</b><i>' + esc(l[1]) + '</i><span>' + (USE[l[3]] || [l[3], l[3]])[1] + '</span></a>'; }).join('') + '</div>', false); }).join(''));
-  setTab('explore'); restoreScroll();
+  setTab('explore'); hint('Words grouped by the head word they seem to contain. Tap a group to open it, then a word to read why it is a lookalike.'); restoreScroll();
 }
 function pageNotes(s) {
   J('data/notes.json').then(function (N) {
@@ -681,7 +743,7 @@ function pageNotes(s) {
     put(crumb('#/explore', 'สำรวจ', 'explore') + section('สมุดของผู้จัด', 'the compound filer\'s notebook' + (s ? ' on ' + esc(BY[s].th) : ', from 31 Aug 2026'), 'x:notebook') +
       '<p class="lede">The filer read each word and decided which meaning every compound grows from. These notes say why.</p>' +
       groups.map(function (g, i) { return fold(linkifyThai(g.h), '', g.items.length, '<div class="notes">' + g.items.join('') + '</div>', i === 0); }).join(''));
-    setTab('explore'); restoreScroll();
+    setTab('explore'); hint('The filer\'s notes, grouped by the day they were written. Tap a heading to open it; tap a Thai word to open its page.'); restoreScroll();
   });
 }
 function pageTrail() {
@@ -689,7 +751,7 @@ function pageTrail() {
   put(section('ประวัติ', 'the words you have opened, newest first', 'x:trail', t.length || null) +
     (t.length ? '<div class="trail">' + t.map(function (x) { return '<a href="' + x[0] + '"><b>' + esc(x[1]) + '</b>' + (x[2] ? '<span>' + esc(String(x[2]).split(',')[0]) + '</span>' : '') + '</a>'; }).join('') + '</div><p><button class="btn ghost" id="clr">ลบรอยเท้า · clear the trail</button></p>'
       : '<div class="card empty"><canvas data-mark="x:trail"></canvas><p>ยังไม่มีรอยเท้า · no steps yet. Open any word, or press <b>เดินเล่น · wander</b> to jump to a linked one.</p></div>'));
-  setTab('trail');
+  setTab('trail'); hint('Every word you opened, newest first. Tap one to go back to it.');
   var b = document.getElementById('clr'); if (b) b.addEventListener('click', function () { store('trail', []); pageTrail(); });
 }
 
@@ -700,7 +762,7 @@ function pagePlay() {
     '<div class="seg game-pick" role="tablist"><button role="tab" data-m="branch" aria-selected="' + (mode === 'branch') + '">ความหมายไหน · which meaning?</button><button role="tab" data-m="weed" aria-selected="' + (mode === 'weed') + '">ของจริงหรือหน้าเหมือน · built from it, or a lookalike?</button></div>' +
     '<p class="lede" id="how"></p><div class="card game" id="game"></div>' +
     '<p class="score" id="score"></p>');
-  setTab('play');
+  setTab('play'); hint('Pick a game, answer, then press <b>ต่อ · next</b>. Your score is kept on this device.');
   var g = document.getElementById('game');
   function tally() { document.getElementById('score').innerHTML = 'ถูก ' + sc.r + ' จาก ' + sc.n + ' · ' + sc.r + ' right of ' + sc.n + (sc.run > 1 ? ' · ติดกัน ' + sc.run + ' in a row' : '') + (sc.best > 1 ? ' · best run ' + sc.best : ''); }
   function mark(ok) { sc.n++; if (ok) { sc.r++; sc.run = (sc.run || 0) + 1; sc.best = Math.max(sc.best || 0, sc.run); } else sc.run = 0; store('score', sc); tally(); }
@@ -802,7 +864,16 @@ function closeGuide() { guideEl.hidden = true; guideEl.innerHTML = ''; document.
 function route() {
   var h = decodeURIComponent(location.hash.replace(/^#\/?/, '')), p = h.split('/');
   here = { kind: 'page' };
-  document.getElementById('back').hidden = !h;
+  var lab = LABEL[p[0]] || '';
+  if (p[0] === 'w' && BY[p[1]]) lab = BY[p[1]].th + (p[2] ? ' · meaning ' + p[2] : '');
+  if (p[0] === 'k') lab = p.slice(1).join('/');
+  if (p[0] === 'bed') lab = dom(p[1]).th + ' · ' + dom(p[1]).en;
+  if (p[0] === 'seed' && ORIGIN[p[1]]) lab = ORIGIN[p[1]][0] + ' · ' + ORIGIN[p[1]][1];
+  if (p[0] === 'via' && VIA[p[1]]) lab = VIA[p[1]].th + ' · ' + VIA[p[1]].en;
+  if (p[0] === 'shape') lab = p.slice(1).join('/');
+  if (p[0] === 'notes' && p[1] && BY[p[1]]) lab = 'สมุด · notes on ' + BY[p[1]].th;
+  pathVisit(location.hash, lab);
+  hint('');
   if (!h) { here = { kind: 'home' }; return pageHome(); }
   switch (p[0]) {
     case 'w': return pageHead(p[1], p[2], p[3]);
@@ -825,10 +896,9 @@ function route() {
   }
   pageMissing();
 }
-window.addEventListener('hashchange', function (e) {
-  SCROLL[curHash] = lastY; curHash = location.hash; depth++; route();
+window.addEventListener('hashchange', function () {
+  SCROLL[curHash] = lastY; curHash = location.hash; route();
 });
-window.addEventListener('popstate', function () { depth = Math.max(0, depth - 2); });
 
 J('data/index.json').then(function (idx) {
   IDX = idx; IDX.byTh = {};

@@ -5,7 +5,7 @@
   --red: #9a2a1f; --gold: #d99a22; --green: #2f7a46; --indigo: #24507a; --plum: #7a3a6e; --rose: #b04870;
   --bark: #6b4426; --leaf: #4f9a4a; --chip: #f2e6cc; --chip-ink: #3a2a18; --on-red: #fff8ec; --scrim: rgba(35,24,15,.45);
   --shadow: 0 2px 0 rgba(60,40,20,.12), 0 6px 18px rgba(60,40,20,.1);
-  --th: "Mitr", "Sarabun", system-ui, sans-serif; --body: "Sarabun", system-ui, sans-serif;
+  --th: "Mitr", "Sarabun", system-ui, sans-serif; --body: "Sarabun", "Noto Sans", system-ui, sans-serif;
   --navh: 64px;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
@@ -202,7 +202,7 @@ h2 canvas { width: 44px; height: 44px; flex: none; }
 .roots-list { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
 .roots-list h3 { margin-top: 0; }
 .cog { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 16px; }
-.cog .f { font: 600 21px "Sarabun", "Noto Sans Lao", "Noto Sans Tai Tham", "Noto Sans Tai Viet", "Noto Sans New Tai Lue", "Noto Sans Myanmar", "Noto Sans Tai Le", "Noto Sans Ahom", "Noto Sans Devanagari", "Noto Sans Khmer", sans-serif; }
+.cog .f { font: 600 21px "Sarabun", "Noto Sans", "Noto Sans Lao", "Noto Sans Tai Tham", "Noto Sans Tai Viet", "Noto Sans New Tai Lue", "Noto Sans Myanmar", "Noto Sans Tai Le", "Noto Sans Ahom", "Noto Sans Devanagari", "Noto Sans Khmer", sans-serif; }
 .tr-knot { border-left: 6px solid var(--gold); }
 .tr-root { font: 600 30px var(--th); color: var(--red); }
 
@@ -404,4 +404,33 @@ h2 canvas { width: 44px; height: 44px; flex: none; }
   .summary { font-size: 17px; }
   .wtable td:nth-child(6), .wtable th:nth-child(6) { display: none; }
   .wtable .bar { display: none; }
+}
+
+/* ---------------------------------------------------------------- path bar, hints, jump buttons */
+.crumbbar { max-width: 1100px; margin: 0 auto; padding: 10px 16px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.backto { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; background: var(--red); color: var(--on-red); border-radius: 999px; padding: 8px 16px 8px 12px; font: 500 16px var(--th); min-height: 44px; max-width: 100%; }
+.backto span { font-size: 26px; line-height: 1; }
+.backto b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46vw; }
+.crumbbar ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 15px; min-width: 0; }
+.crumbbar li { display: inline-flex; align-items: center; }
+.crumbbar li + li::before { content: "›"; color: var(--soft); margin: 0 6px; font-weight: 700; }
+.crumbbar li a { text-decoration: none; background: var(--chip); color: var(--chip-ink); border-radius: 999px; padding: 4px 10px; font-family: var(--th); }
+.crumbbar li b { font: 600 15px var(--th); color: var(--red); }
+.crumbbar li.gap { color: var(--soft); }
+.hintbar { max-width: 1100px; margin: 8px auto 0; padding: 0 16px; display: flex; gap: 10px; align-items: flex-start; font-size: 15px; color: var(--soft); }
+.hintbar .i { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--indigo); color: var(--on-red); display: grid; place-items: center; font: italic 700 14px Georgia, serif; margin-top: 1px; }
+.hintbar b { color: var(--ink); }
+.jump { position: sticky; top: calc(62px + env(safe-area-inset-top, 0px)); z-index: 20; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 12px -16px 0; padding: 8px 16px; background: color-mix(in srgb, var(--paper) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); align-items: center; }
+.jump::-webkit-scrollbar { display: none; }
+.jump span { flex: none; font-size: 13px; color: var(--soft); }
+.jump button { flex: none; border: 2px solid var(--line); background: var(--card); border-radius: 999px; padding: 6px 12px; font: 500 15px var(--th); cursor: pointer; min-height: 40px; }
+.jump button em { font-style: normal; background: var(--chip); border-radius: 999px; padding: 0 7px; margin-left: 4px; font-size: 13px; }
+.jump button:hover { border-color: var(--gold); }
+#sec-pic, #sec-origin, #sec-words, #sec-look, #sec-rule, #sec-notes { scroll-margin-top: 130px; }
+.origin .lede { margin-top: 0; }
+.ety { margin-top: 10px; font-size: 15px; }
+.ety summary { cursor: pointer; color: var(--soft); min-height: 40px; display: flex; align-items: center; }
+@media (min-width: 900px) {
+  .jump { top: calc(115px + env(safe-area-inset-top, 0px)); }
+  #sec-pic, #sec-origin, #sec-words, #sec-look, #sec-rule, #sec-notes { scroll-margin-top: 180px; }
 }
